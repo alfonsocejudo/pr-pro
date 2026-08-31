@@ -1,0 +1,146 @@
+{
+  "name": "pr-pro",
+  "label": "PR Pro",
+  "description": "Reviews the open pull requests in your repositories and posts what it finds as a comment on each one.",
+  "version": 1,
+  "author": "fonz@happeningsoft.com",
+  "stages": [
+    {
+      "id": "pr-scan",
+      "label": "PR Scan",
+      "description": "Finds the open pull requests in the repositories you pick and queues up one review for each. Drafts are skipped. The settings below narrow it further — to certain authors, or to pull requests updated in a date range.",
+      "module": "./stages/pr-scan.ts",
+      "fixtureModule": "./stages/pr-scan.fixture.ts",
+      "scope": "pre-run",
+      "writes": [
+        "tickets"
+      ],
+      "tunables": [
+        {
+          "name": "repos",
+          "type": "repos",
+          "default": [],
+          "required": true,
+          "description": "Scan these repos for PRs",
+          "section": "settings"
+        },
+        {
+          "name": "authors",
+          "type": "string",
+          "default": "",
+          "description": "Only create review tickets for PRs by these authors — comma-separated usernames. Leave empty to review every author.",
+          "section": "settings"
+        },
+        {
+          "name": "lookback",
+          "type": "number",
+          "range": {
+            "min": 0,
+            "max": 365,
+            "step": 1
+          },
+          "default": 0,
+          "description": "Only create review tickets for PRs updated within the last N days. 0 means no date limit — every open PR is in range.",
+          "section": "settings"
+        },
+        {
+          "name": "since",
+          "type": "date",
+          "default": "",
+          "description": "Only create review tickets for PRs updated on or after this date. Leave empty for no start date.",
+          "section": "settings"
+        },
+        {
+          "name": "until",
+          "type": "date",
+          "default": "",
+          "description": "Only create review tickets for PRs updated on or before this date. Leave empty for no end date.",
+          "section": "settings"
+        }
+      ]
+    },
+    {
+      "id": "discussion",
+      "label": "Discussion",
+      "description": "Reads what people have already said on the pull request, so the review can build on the discussion instead of repeating points someone has already made. That includes any review this workflow posted earlier, so a pull request that comes back for a second look doesn't get the same comments twice.",
+      "module": "./stages/discussion.ts",
+      "fixtureModule": "./stages/discussion.fixture.ts",
+      "scope": "per-ticket",
+      "writes": [
+        "existingComments"
+      ]
+    },
+    {
+      "id": "correctness",
+      "label": "Correctness",
+      "description": "Looks for what is wrong or unsafe in the change: it runs the repository's own tests and checks, hunts for bugs, tries to break anything that accepts input from people or other systems, and asks whether the tests would really catch a mistake. Pull requests that were merged or closed while waiting in the queue are skipped rather than reviewed.",
+      "usesAgent": true,
+      "module": "./stages/correctness.ts",
+      "fixtureModule": "./stages/correctness.fixture.ts",
+      "scope": "per-ticket",
+      "reads": [
+        "existingComments"
+      ],
+      "writes": [
+        "correctnessFindings"
+      ]
+    },
+    {
+      "id": "quality",
+      "label": "Quality",
+      "description": "Looks for what is not wrong but will cost you later: code that repeats something the repository already has, code that will be hard to read or change, and places where the change could freeze or crash. It reads the correctness review first, so the two don't report the same thing twice.",
+      "usesAgent": true,
+      "module": "./stages/quality.ts",
+      "fixtureModule": "./stages/quality.fixture.ts",
+      "scope": "per-ticket",
+      "reads": [
+        "existingComments",
+        "correctnessFindings"
+      ],
+      "writes": [
+        "qualityFindings"
+      ]
+    },
+    {
+      "id": "evidence",
+      "label": "Evidence",
+      "description": "Double-checks both reviews against the code before anything is posted. Every problem a reviewer claims has to be shown — the failing test run again, the exact lines pointed at, the problem reproduced — and whatever can't be shown is thrown out. If the change affects something you can see on screen, it takes before-and-after screenshots to go with the review.",
+      "usesAgent": true,
+      "module": "./stages/evidence.ts",
+      "fixtureModule": "./stages/evidence.fixture.ts",
+      "scope": "per-ticket",
+      "reads": [
+        "existingComments",
+        "correctnessFindings",
+        "qualityFindings"
+      ],
+      "writes": [
+        "verifiedReview",
+        "reviewScreenshots"
+      ]
+    },
+    {
+      "id": "publish",
+      "label": "Publish",
+      "description": "Posts the finished review as a comment on the pull request. On a run you start yourself, it shows you exactly what will be sent — screenshots included — and posts nothing until you confirm. Under 24/7 development there is nobody to ask, so it posts as soon as the evidence check has passed.",
+      "module": "./stages/publish.ts",
+      "fixtureModule": "./stages/publish.fixture.ts",
+      "scope": "per-ticket",
+      "reads": [
+        "verifiedReview",
+        "reviewScreenshots"
+      ],
+      "writes": [
+        "verifiedReview",
+        "reviewScreenshots"
+      ]
+    }
+  ],
+  "sharedData": [
+    "existingComments",
+    "correctnessFindings",
+    "qualityFindings",
+    "verifiedReview",
+    "reviewScreenshots"
+  ]
+}

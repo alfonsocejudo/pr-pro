@@ -1,0 +1,516 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 130">
+  <!--
+    Correctness — the desk examiner.
+
+    The metaphor: this stage is the examiner who reads the submission
+    against the rules and says whether it can go out. He works the proof
+    on his desk with a red pen, pulls a volume off the shelf behind him
+    when he needs to check something, scores hard at the one passage that
+    has to survive being attacked, and ends on a call the author has to
+    live with: APPROVE or CHANGES. The red tab clipped to the proof is
+    the standing objection — it comes off only when the work is cleared.
+
+    The marks he makes appear and clear as he works down the page. They
+    are the act of reviewing, not a tally: nothing on this machine ever
+    settles into a countable list, because a count would read as a claim
+    about how many checks or findings the pull request actually has.
+    Only the verdict panel holds.
+
+    Composition follows the rest of the cast: a flat board of repeated
+    small things across the top, the oversized head occluding its middle,
+    the work on the desk under one hand, the bench across the bottom.
+
+    Drawing style matches stages/pr-scan.svg and stages/discussion.svg —
+    flat fills, no outlines, shading by a second darker tone, oversized
+    head, heavy hooded lids. The figure uses the same scale transform as
+    the clerk and the secretary so the cast reads as one. The ochre
+    waistcoat is the one bold colour here, the way the clerk's eyeshade
+    and the secretary's cardigan are theirs; the bow tie and the grey
+    swept hair carry the character.
+
+    The box is 150x130 with the origin at the top-left and the machine's
+    ground line at y=130.
+
+    While a run is live the dashboard wraps this art in an element carrying
+    data-machine-phase ("pending" | "active" | "done") and data-machine-state
+    (the stage's latest machine:state). React to them with CSS, as the
+    <style> below does. Use CSS animations, not SMIL <animate> — only CSS can
+    key off those attributes, and <animate> is stripped for safety.
+
+    States this art reacts to. The runner owns "active" / "complete" /
+    "failed" / "filtered"; correctness.ts sets the rest:
+      preflight-check    confirming the PR is still open and not draft
+      inspecting         the review is running — checks, bug hunt,
+                         adversarial pass, test discipline. Runs a 9.6s
+                         choreography (INSPECT_CYCLE_MS in the fixture
+                         twin): six marks made and cleared in turn, 1.6s
+                         apart, each one preceded by the volume he checks
+                         it against. Keep the two in step if either changes.
+      approved           the report's verdict line reads APPROVE
+      changes-requested  the report's verdict line reads REQUEST CHANGES
+      verdict-unclear    the report opens with neither, so no call is shown
+      pr-settled         the PR merged or closed while the ticket queued
+      pr-draft           the PR went back to draft while the ticket queued
+
+    The verdict states are a held beat, not a resting look: the runner
+    emits its own terminal machine:state the moment the stage returns, so
+    the pacer holds the verdict for one animation loop and the machine
+    then settles into the [data-machine-phase="done"] look.
+
+    Ids and class names are page-global once inlined — every one here is
+    prefixed "cor-" so machines don't collide. Anything that rotates or
+    scales pins its own transform-box + transform-origin rather than
+    relying on the initial values, which differ enough between engines to
+    fling an element off its pivot.
+  -->
+  <style>
+    /* Pivots. Rotation and scale are the only reliable animatable
+       properties in the app's webview, and each one here needs its
+       origin stated: the pen turns at the wrist, a mark grows from its
+       own centre, the tab at its clip, an eye at its centre. */
+    .cor-pen  { transform-box: fill-box; transform-origin: 50% 8%; }
+    /* Whole arm, pivoting at the shoulder (59,80) in its own bbox. */
+    .cor-arm  { transform-box: fill-box; transform-origin: 96% 30%; }
+    .cor-mark { transform-box: fill-box; transform-origin: 50% 50%; }
+    .cor-tab  { transform-box: fill-box; transform-origin: 50% 100%; }
+    .cor-eye  { transform-box: fill-box; transform-origin: 50% 50%; }
+
+    /* Resting look — what the machine shows before a run starts. */
+    .cor-mark,
+    .cor-score,
+    .cor-vol,
+    .cor-glow      { opacity: 0; }
+    .cor-lamp      { opacity: 0.3; }
+    .cor-nib       { opacity: 0.4; }
+    .cor-yes,
+    .cor-no        { opacity: 0.16; }
+    .cor-yes-lit,
+    .cor-no-lit    { opacity: 0; }
+
+    /* At the desk: he breathes, the desk lamps tick over, the nib is wet
+       for as long as he is working — through the freshness check and the
+       verdict, not just the reading pass. */
+    [data-machine-phase="active"] .cor-glow { animation: cor-breathe 2.6s ease-in-out infinite; }
+    [data-machine-phase="active"] .cor-exam { animation: cor-bob 1.8s ease-in-out infinite; }
+    [data-machine-phase="active"] .cor-lamp { animation: cor-lamp-blink 1.3s ease-in-out infinite; }
+    [data-machine-phase="active"] .cor-eye  { animation: cor-wink 4.1s ease-in-out infinite; }
+    [data-machine-phase="active"] .cor-nib  { opacity: 1; }
+
+    /* Is the work still on the desk to read? He squares the proof and
+       checks the panel before spending a pass on it — the sheet lifts
+       once, the tab stirs, and he watches for the answer. */
+    [data-machine-state="preflight-check"] .cor-sheet { animation: cor-square 2.4s ease-in-out infinite; }
+    [data-machine-state="preflight-check"] .cor-head  { animation: cor-look-up 2.4s ease-in-out infinite; }
+    [data-machine-state="preflight-check"] .cor-tab   { animation: cor-swing 2.4s ease-in-out infinite; }
+
+    /* The review itself, as one continuous pass down the page: he checks a
+       volume, marks the proof, and moves on. Each mark clears behind him,
+       so the page never settles into something countable. */
+    /* Scoped to the state, not bare classes: the rule above sets `animation`
+       as a shorthand, which resets animation-delay to 0s, and an unscoped
+       .cor-m1 would lose to it on specificity and stagger nothing. */
+    [data-machine-state="inspecting"] .cor-mark  { animation: cor-marked 9.6s ease-in-out infinite; }
+    [data-machine-state="inspecting"] .cor-score { animation: cor-scored 9.6s ease-in-out infinite; }
+    [data-machine-state="inspecting"] .cor-vol   { animation: cor-consult 9.6s ease-in-out infinite; }
+    [data-machine-state="inspecting"] .cor-head  { animation: cor-glance 9.6s ease-in-out infinite; }
+    [data-machine-state="inspecting"] .cor-arm   { animation: cor-arm-track 9.6s ease-in-out infinite; }
+    [data-machine-state="inspecting"] .cor-pen   { animation: cor-dip 1.6s ease-in-out infinite; }
+
+    /* Where each beat falls in the 9.6s cycle — six marks, 1.6s apart. A
+       mark and the volume it is checked against share a delay; the
+       volume's own keyframes light it first. */
+    [data-machine-state="inspecting"] .cor-m1 { animation-delay: 0s; }
+    [data-machine-state="inspecting"] .cor-m2 { animation-delay: 1.6s; }
+    [data-machine-state="inspecting"] .cor-m3 { animation-delay: 3.2s; }
+    [data-machine-state="inspecting"] .cor-m4 { animation-delay: 4.8s; }
+    [data-machine-state="inspecting"] .cor-m5 { animation-delay: 6.4s; }
+    [data-machine-state="inspecting"] .cor-m6 { animation-delay: 8s; }
+
+    /* Cleared: the APPROVE side lights and the tab comes off the proof. */
+    [data-machine-state="approved"] .cor-yes     { opacity: 1; animation: cor-verdict-blink 1.4s ease-in-out infinite; }
+    [data-machine-state="approved"] .cor-yes-lit { opacity: 1; }
+    [data-machine-state="approved"] .cor-tab     { animation: cor-tab-pull 0.9s ease-in both; }
+    [data-machine-state="approved"] .cor-lamp    { opacity: 0.8; animation: none; }
+
+    /* Not cleared: the CHANGES side lights, the standing objection is
+       scored across the proof, and the tab stays clipped to it. */
+    [data-machine-state="changes-requested"] .cor-no     { opacity: 1; animation: cor-verdict-blink 1.1s ease-in-out infinite; }
+    [data-machine-state="changes-requested"] .cor-no-lit { opacity: 1; }
+    [data-machine-state="changes-requested"] .cor-score  { opacity: 1; animation: none; }
+    [data-machine-state="changes-requested"] .cor-tab    { animation: cor-swing 1.4s ease-in-out infinite; }
+    [data-machine-state="changes-requested"] .cor-lamp   { fill: #ffb148; opacity: 0.9; animation: none; }
+
+    /* The review ran, but its report opens with no verdict — there is no
+       call to show. Neither side of the panel lights, the desk lamps go
+       amber, and the tab stays on the proof: the objection has not been
+       withdrawn, because nothing was said either way. */
+    [data-machine-state="verdict-unclear"] .cor-lamp { fill: #ffb148; opacity: 0.9; animation: none; }
+    [data-machine-state="verdict-unclear"] .cor-tab  { animation: cor-swing 2.4s ease-in-out infinite; }
+    [data-machine-state="verdict-unclear"] .cor-head { animation: cor-look-up 2.4s ease-in-out infinite; }
+
+    /* The work left the desk while the ticket queued — merged or closed.
+       Nothing to read. */
+    [data-machine-state="pr-settled"] .cor-board,
+    [data-machine-state="pr-settled"] .cor-proof,
+    [data-machine-state="filtered"]   .cor-board,
+    [data-machine-state="filtered"]   .cor-proof { opacity: 0.12; }
+    [data-machine-state="pr-settled"] .cor-exam,
+    [data-machine-state="filtered"]   .cor-exam  { transform: translateY(2px); }
+
+    /* Back to draft — still on the desk, but not ready to be read. */
+    [data-machine-state="pr-draft"] .cor-proof { opacity: 0.4; }
+    [data-machine-state="pr-draft"] .cor-board { opacity: 0.55; }
+    [data-machine-state="pr-draft"] .cor-lamp  { fill: #ffb148; opacity: 0.9; animation: none; }
+
+    /* Nothing to read, or nothing that can be — the pen goes down. */
+    [data-machine-state="pr-settled"] .cor-nib,
+    [data-machine-state="pr-draft"]   .cor-nib,
+    [data-machine-state="filtered"]   .cor-nib,
+    [data-machine-state="failed"]     .cor-nib { opacity: 0.15; }
+    [data-machine-state="pr-settled"] .cor-pen,
+    [data-machine-state="pr-draft"]   .cor-pen,
+    [data-machine-state="filtered"]   .cor-pen,
+    [data-machine-state="failed"]     .cor-pen { animation: none; }
+
+    /* Pass over. */
+    [data-machine-phase="done"] .cor-lamp { opacity: 0.7; }
+    [data-machine-phase="done"] .cor-nib  { opacity: 0.4; }
+
+    /* The review could not be run at all. */
+    [data-machine-state="failed"] .cor-exam      { transform: translateY(3px); }
+    [data-machine-state="failed"] .cor-lamp      { fill: #e15c4a; opacity: 0.85; animation: none; }
+    [data-machine-state="failed"] .cor-no        { opacity: 0.9; }
+    [data-machine-state="failed"] .cor-no-lit    { opacity: 0.7; }
+    [data-machine-state="failed"] .cor-waistcoat { fill: #8a7a55; }
+
+    @keyframes cor-bob {
+      0%, 100% { transform: translateY(0); }
+      50%      { transform: translateY(-1.5px); }
+    }
+    @keyframes cor-breathe {
+      0%, 100% { opacity: 0.1; }
+      50%      { opacity: 0.22; }
+    }
+    @keyframes cor-lamp-blink {
+      0%, 100% { opacity: 0.3; }
+      50%      { opacity: 1; }
+    }
+    /* The verdict lamp pulses without ever going dark — the call has been
+       made, and a lamp that drops to the resting dim reads as undecided. */
+    @keyframes cor-verdict-blink {
+      0%, 100% { opacity: 0.55; }
+      50%      { opacity: 1; }
+    }
+    @keyframes cor-wink {
+      0%, 92%, 100% { transform: scaleY(1); }
+      96%           { transform: scaleY(0.12); }
+    }
+    /* His eye-line works down the proof, goes up to the shelf for the rule
+       he is checking against, and comes back to the page. */
+    @keyframes cor-glance {
+      0%,  30% { transform: translate(-2.5px, 0.5px); }
+      42%, 54% { transform: translate(-1px, -2px); }
+      66%, 88% { transform: translate(-2.5px, 1px); }
+      94%      { transform: translate(0, -1.5px); }
+      100%     { transform: translate(-2.5px, 0.5px); }
+    }
+    /* Watching the panel for the freshness answer. */
+    @keyframes cor-look-up {
+      0%, 100% { transform: translate(0, 0); }
+      50%      { transform: translate(0, -2px); }
+    }
+    /* The writing hand works down the page and lifts while he checks the
+       shelf. */
+    @keyframes cor-arm-track {
+      0%,  30% { transform: rotate(0deg); }
+      42%, 54% { transform: rotate(-6deg); }
+      66%, 88% { transform: rotate(3deg); }
+      100%     { transform: rotate(0deg); }
+    }
+    /* One dip per mark. */
+    @keyframes cor-dip {
+      0%, 100% { transform: rotate(0deg); }
+      22%      { transform: rotate(9deg); }
+      48%      { transform: rotate(-1deg); }
+    }
+    /* A mark being made, and cleared behind him as he moves down the page.
+       Nothing accumulates — at no point is there a stable set to count. */
+    @keyframes cor-marked {
+      0%       { opacity: 0; transform: scale(0.5); }
+      3%       { opacity: 1; transform: scale(1); }
+      15%      { opacity: 1; transform: scale(1); }
+      21%, 100%{ opacity: 0; transform: scale(1); }
+    }
+    /* The adversarial pass — this passage is scored over and over to see
+       whether it holds, rather than simply marked. */
+    @keyframes cor-scored {
+      0%, 100% { opacity: 0; }
+      2%       { opacity: 0.9; }
+      4%       { opacity: 0.2; }
+      6%       { opacity: 0.9; }
+      8%       { opacity: 0.2; }
+      10%      { opacity: 1; }
+      18%      { opacity: 1; }
+      23%      { opacity: 0; }
+    }
+    /* The volume he checks the passage against, pulled a beat before the
+       mark it justifies. */
+    @keyframes cor-consult {
+      0%        { opacity: 0; }
+      1%        { opacity: 0.55; }
+      11%, 100% { opacity: 0; }
+    }
+    /* Squaring the proof to see it is still the one he was sent. */
+    @keyframes cor-square {
+      0%, 100% { transform: translate(0, 0); }
+      35%      { transform: translate(0, -1.5px); }
+      70%      { transform: translate(0, 0); }
+    }
+    @keyframes cor-swing {
+      0%, 100% { transform: rotate(-6deg); }
+      50%      { transform: rotate(6deg); }
+    }
+    /* Objection withdrawn. */
+    @keyframes cor-tab-pull {
+      0%   { transform: translate(0, 0) rotate(0deg);         opacity: 1; }
+      100% { transform: translate(10px, -14px) rotate(28deg); opacity: 0; }
+    }
+  </style>
+
+  <!-- the reference shelf: the rules the submission is read against. Bound
+       volumes, not a list — nothing here is meant to be counted. -->
+  <g class="cor-board">
+    <rect x="4" y="2" width="142" height="46" rx="5" fill="#1b3350"/>
+    <rect x="6" y="2.5" width="138" height="3" rx="1.5" fill="#2a4a6b"/>
+
+    <!-- upper shelf, left run -->
+    <g>
+      <rect x="8"  y="9"  width="6" height="14" rx="1" fill="#16293f"/>
+      <rect x="15" y="7"  width="4" height="16" rx="1" fill="#24425f"/>
+      <rect x="20" y="8"  width="7" height="15" rx="1" fill="#1f5f7d"/>
+      <rect x="28" y="6.5" width="5" height="16.5" rx="1" fill="#12233a"/>
+      <rect x="34" y="9"  width="6" height="14" rx="1" fill="#2d5478"/>
+      <rect x="41" y="7.5" width="5" height="15.5" rx="1" fill="#16293f"/>
+      <rect class="cor-vol cor-m1" x="20" y="8" width="7" height="15" rx="1" fill="#81ecff"/>
+      <rect class="cor-vol cor-m4" x="34" y="9" width="6" height="14" rx="1" fill="#81ecff"/>
+    </g>
+    <!-- upper shelf, right run -->
+    <g>
+      <rect x="102" y="7.5" width="5" height="15.5" rx="1" fill="#2d5478"/>
+      <rect x="108" y="9"   width="7" height="14" rx="1" fill="#12233a"/>
+      <rect x="116" y="6.5" width="4" height="16.5" rx="1" fill="#1f5f7d"/>
+      <rect x="121" y="8"   width="6" height="15" rx="1" fill="#24425f"/>
+      <rect x="128" y="7"   width="5" height="16" rx="1" fill="#16293f"/>
+      <rect x="134" y="9"   width="8" height="14" rx="1" fill="#2d5478"/>
+      <rect class="cor-vol cor-m2" x="116" y="6.5" width="4" height="16.5" rx="1" fill="#81ecff"/>
+      <rect class="cor-vol cor-m5" x="128" y="7" width="5" height="16" rx="1" fill="#81ecff"/>
+    </g>
+    <rect x="6" y="23" width="138" height="2.4" rx="1.2" fill="#2a4a6b"/>
+
+    <!-- lower shelf, left run -->
+    <g>
+      <rect x="8"  y="30" width="5" height="14" rx="1" fill="#1f5f7d"/>
+      <rect x="14" y="28" width="7" height="16" rx="1" fill="#16293f"/>
+      <rect x="22" y="29" width="4" height="15" rx="1" fill="#2d5478"/>
+      <rect x="27" y="27.5" width="6" height="16.5" rx="1" fill="#24425f"/>
+      <rect x="34" y="30" width="5" height="14" rx="1" fill="#12233a"/>
+      <rect x="40" y="28.5" width="6" height="15.5" rx="1" fill="#1f5f7d"/>
+      <rect class="cor-vol cor-m3" x="14" y="28" width="7" height="16" rx="1" fill="#81ecff"/>
+    </g>
+    <!-- lower shelf, right run -->
+    <g>
+      <rect x="102" y="29" width="6" height="15" rx="1" fill="#24425f"/>
+      <rect x="109" y="27.5" width="5" height="16.5" rx="1" fill="#2d5478"/>
+      <rect x="115" y="30" width="7" height="14" rx="1" fill="#16293f"/>
+      <rect x="123" y="28" width="4" height="16" rx="1" fill="#1f5f7d"/>
+      <rect x="128" y="29.5" width="6" height="14.5" rx="1" fill="#12233a"/>
+      <rect x="135" y="28" width="7" height="16" rx="1" fill="#24425f"/>
+      <rect class="cor-vol cor-m6" x="123" y="28" width="4" height="16" rx="1" fill="#81ecff"/>
+    </g>
+    <rect x="6" y="44" width="138" height="2.4" rx="1.2" fill="#2a4a6b"/>
+
+    <!-- the verdict panel: the call the report's verdict line makes -->
+    <rect x="48" y="2" width="54" height="21" rx="3" fill="#0e1c2e"/>
+    <rect x="49" y="2.5" width="52" height="2.4" rx="1.2" fill="#24425f"/>
+    <rect x="74.6" y="6" width="0.8" height="15" fill="#24425f"/>
+    <rect x="51" y="6" width="22" height="10" rx="2" fill="#16293f"/>
+    <rect x="77" y="6" width="22" height="10" rx="2" fill="#16293f"/>
+    <path class="cor-yes" d="M57.4 11.2 L60.4 14.2 L66.6 7.6" stroke="#81ecff" stroke-width="2.6"
+          stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path class="cor-no" d="M84.6 7.9 L92.4 14.5 M92.4 7.9 L84.6 14.5" stroke="#e15c4a" stroke-width="2.6"
+          stroke-linecap="round" fill="none"/>
+    <text x="62" y="21" text-anchor="middle" fill="#3d5f80"
+          font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+          font-size="4" font-weight="700" letter-spacing="0.2">APPROVE</text>
+    <text class="cor-yes-lit" x="62" y="21" text-anchor="middle" fill="#81ecff"
+          font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+          font-size="4" font-weight="700" letter-spacing="0.2">APPROVE</text>
+    <text x="88" y="21" text-anchor="middle" fill="#3d5f80"
+          font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+          font-size="4" font-weight="700" letter-spacing="0.2">CHANGES</text>
+    <text class="cor-no-lit" x="88" y="21" text-anchor="middle" fill="#e15c4a"
+          font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+          font-size="4" font-weight="700" letter-spacing="0.2">CHANGES</text>
+  </g>
+
+  <!-- the proof on the desk: the submission being read -->
+  <g class="cor-proof">
+    <g class="cor-sheet">
+      <!-- the sheet under it, for depth -->
+      <rect x="9" y="79" width="46" height="23" rx="1.5" fill="#d4c39d"/>
+      <rect x="6" y="76" width="46" height="26" rx="1.5" fill="#f0e4c8"/>
+      <!-- heading rule, then the body it sets -->
+      <rect x="10" y="79.5" width="18" height="2.4" rx="1.2" fill="#b3a179"/>
+      <g fill="#d4c39d">
+        <rect x="10" y="85"   width="38" height="1.8" rx="0.9"/>
+        <rect x="10" y="89"   width="34" height="1.8" rx="0.9"/>
+        <rect x="10" y="93"   width="38" height="1.8" rx="0.9"/>
+        <rect x="10" y="97"   width="29" height="1.8" rx="0.9"/>
+      </g>
+
+      <!-- the marks, made and cleared as he works down the page -->
+      <g fill="#e15c4a">
+        <path class="cor-mark cor-m1" d="M13 84.2 L16 80.2 L19 84.2 L17.6 84.2 L16 82.1 L14.4 84.2 Z"/>
+        <rect class="cor-mark cor-m2" x="24" y="88.1" width="15" height="1.6" rx="0.8"/>
+        <path class="cor-mark cor-m3" d="M42 92.4 L45 88.4 L48 92.4 L46.6 92.4 L45 90.3 L43.4 92.4 Z"/>
+        <rect class="cor-mark cor-m5" x="12" y="96.1" width="12" height="1.6" rx="0.8"/>
+        <rect class="cor-mark cor-m6" x="50" y="88" width="2" height="9" rx="1"/>
+      </g>
+      <ellipse class="cor-mark cor-m2" cx="34" cy="85.9" rx="9" ry="3.6" stroke="#e15c4a"
+               stroke-width="1.2" fill="none"/>
+      <!-- the passage that has to survive being attacked, scored rather
+           than marked; it is also what a rejected verdict leaves behind -->
+      <rect class="cor-score cor-m4" x="10" y="92" width="38" height="2.6" rx="1.3" fill="#e15c4a"/>
+
+      <!-- the red tab clipped to the proof: the standing objection -->
+      <g transform="translate(44 76)">
+        <g class="cor-tab">
+          <rect x="-3.5" y="-9" width="7" height="12" rx="1.5" fill="#e15c4a"/>
+          <rect x="-3.5" y="-1.5" width="7" height="4.5" fill="#c2402f"/>
+          <g fill="#f7dcd6">
+            <rect x="-2.2" y="-7" width="4.4" height="1.3" rx="0.65"/>
+            <rect x="-2.2" y="-4.4" width="4.4" height="1.3" rx="0.65"/>
+          </g>
+        </g>
+      </g>
+    </g>
+  </g>
+
+  <!-- the examiner -->
+  <g class="cor-exam">
+    <!-- shirt sleeves, then the waistcoat over the front -->
+    <path d="M54 103 L56 80 Q57 73 66 73 L84 73 Q93 73 94 80 L96 103 Z" fill="#e8eef4"/>
+    <path class="cor-waistcoat" d="M62 103 L62 80 Q62 77 66 77 L84 77 Q88 77 88 80 L88 103 Z" fill="#c9902e"/>
+    <!-- the collar, and the bow tie sitting in it -->
+    <path d="M65 77 L75 85 L85 77 Z" fill="#f4f7fa"/>
+    <path d="M68 79 L74 82.5 L68 86 Z" fill="#39434f"/>
+    <path d="M82 79 L76 82.5 L82 86 Z" fill="#39434f"/>
+    <rect x="73.4" y="80.6" width="3.2" height="3.8" rx="1" fill="#2b333d"/>
+    <!-- breast pocket, with a spare pen in it -->
+    <rect x="80" y="90" width="7" height="6" rx="1" fill="#b07f26"/>
+    <rect x="82.6" y="87.5" width="1.8" height="5" rx="0.9" fill="#a8412f"/>
+
+    <!-- head, set down into the shoulders; the glance rides a wrapper
+         because a CSS transform on the group below would override its own
+         transform attribute -->
+    <g class="cor-head">
+    <g transform="translate(75 54.24) scale(1.28) translate(-75 -61)">
+      <!-- ears -->
+      <ellipse cx="57.5" cy="63" rx="3" ry="4.2" fill="#cd8852"/>
+      <ellipse cx="92.5" cy="63" rx="3" ry="4.2" fill="#cd8852"/>
+
+      <!-- head -->
+      <rect x="59" y="44" width="32" height="34" rx="14" fill="#e8a56d"/>
+      <!-- grey hair: the mass sits over the skull and stands proud of it at
+           the crown and temples, the way the clerk's and the secretary's do.
+           The high forehead comes from where the hairline falls, not from
+           tucking the silhouette inside the head. -->
+      <path d="M58 66 Q57.6 50 66.4 45.4 Q75 41.6 83.6 45.4 Q92.4 50 92 66 Q90.6 58.5 87.2 56 Q82 52.4 77.5 53.4 Q75 56 72.5 53.4 Q68 52.4 62.8 56 Q59.4 58.5 58 66 Z" fill="#b0bac6"/>
+      <!-- the swept side, in the second darker tone -->
+      <path d="M75 42.4 Q84 43 91.6 50.2 Q92.2 58 91.8 65.4 Q90.4 58.4 87.2 56 Q82 52.4 77.5 53.4 Q75.6 55.4 75 55.6 Z" fill="#939fad"/>
+      <!-- sideburns, carried down past the ear -->
+      <path d="M59.4 63 Q62 63 62.8 66 L62.8 71 Q60 70 59.4 67 Z" fill="#b0bac6"/>
+      <path d="M90.6 63 Q88 63 87.2 66 L87.2 71 Q90 70 90.6 67 Z" fill="#939fad"/>
+      <!-- the shadow the hair throws on the brow -->
+      <path d="M62 57.5 Q75 54 88 57.5 L88 59.5 Q75 56.2 62 59.5 Z" fill="#cd8852"/>
+
+      <!-- eyes: big ovals under heavy hooded lids, each drawn around its
+           own origin so the blink scales in place -->
+      <g transform="translate(68.5 68.5)">
+        <g class="cor-eye">
+          <ellipse rx="4.3" ry="4.7" fill="#f4f7fa"/>
+          <ellipse cy="1.4" rx="2" ry="2.2" fill="#33232b"/>
+          <path d="M-4.7 -1.4 Q-4.7 -5.6 0 -5.6 Q4.7 -5.6 4.7 -1.4 Q0 -3.4 -4.7 -1.4 Z" fill="#33232b"/>
+        </g>
+      </g>
+      <g transform="translate(81.5 68.5)">
+        <g class="cor-eye">
+          <ellipse rx="4.3" ry="4.7" fill="#f4f7fa"/>
+          <ellipse cy="1.4" rx="2" ry="2.2" fill="#33232b"/>
+          <path d="M-4.7 -1.4 Q-4.7 -5.6 0 -5.6 Q4.7 -5.6 4.7 -1.4 Q0 -3.4 -4.7 -1.4 Z" fill="#33232b"/>
+        </g>
+      </g>
+      <!-- heavy brows: the examiner's default expression -->
+      <g fill="#9aa5b1">
+        <rect x="63.4" y="61.6" width="10.2" height="2.2" rx="1.1"/>
+        <rect x="76.4" y="61.6" width="10.2" height="2.2" rx="1.1"/>
+      </g>
+
+      <!-- nose -->
+      <ellipse cx="75" cy="71.5" rx="4.4" ry="3" fill="#cd8852"/>
+      <!-- a flat mouth — he is not enjoying this -->
+      <rect x="70" y="75.6" width="10" height="1.8" rx="0.9" fill="#a9663f"/>
+    </g>
+    </g>
+  </g>
+
+  <!-- desk -->
+  <rect x="2" y="102" width="146" height="9" rx="2.5" fill="#1c3450"/>
+  <rect x="3" y="102.5" width="144" height="5" rx="2" fill="#2a4a6b"/>
+  <rect x="30" y="111" width="90" height="15" fill="#16293f"/>
+  <rect x="26" y="126" width="18" height="4" rx="1.5" fill="#101f31"/>
+  <rect x="106" y="126" width="18" height="4" rx="1.5" fill="#101f31"/>
+  <!-- nameplate and status lamps on the desk front -->
+  <rect x="56" y="114" width="38" height="9" rx="2.5" fill="#101f31"/>
+  <g fill="#2d7fa8">
+    <rect x="61" y="116" width="28" height="1.8" rx="0.9"/>
+    <rect x="61" y="119.5" width="28" height="1.8" rx="0.9"/>
+  </g>
+  <circle class="cor-lamp" cx="38" cy="118.5" r="2.6" fill="#81ecff"/>
+  <circle class="cor-lamp" cx="46" cy="118.5" r="2.6" fill="#3aa8d6"/>
+
+  <!-- the volumes he has already pulled, stacked by his free hand -->
+  <rect x="106" y="93" width="36" height="4.5" rx="1.5" fill="#1f5f7d"/>
+  <rect x="106" y="93" width="36" height="1.6" rx="0.8" fill="#2d7fa8"/>
+  <rect x="103" y="97.5" width="40" height="4.5" rx="1.5" fill="#24425f"/>
+  <rect x="103" y="97.5" width="40" height="1.6" rx="0.8" fill="#2d5478"/>
+
+  <!-- the free hand, resting on the stack -->
+  <path d="M91 80 L100 87 L104 92" stroke="#e8eef4" stroke-width="8"
+        stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <ellipse cx="106" cy="92" rx="4.4" ry="4" fill="#e8a56d"/>
+  <ellipse cx="103" cy="94.5" rx="2" ry="2.4" fill="#e8a56d"/>
+
+  <!-- the writing arm. The pen is drawn upright inside a wrapper that
+       carries its resting angle, so the CSS dip rotates on top of it
+       instead of replacing it. -->
+  <g class="cor-arm">
+  <path d="M59 81 L50 85 L40 84" stroke="#e8eef4" stroke-width="8"
+        stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <g transform="translate(38 84)">
+    <g transform="rotate(40)">
+      <g class="cor-pen">
+        <rect x="-2.2" y="-3" width="4.4" height="16" rx="1.8" fill="#a8412f"/>
+        <rect x="-2.2" y="-3" width="4.4" height="4" rx="1.8" fill="#c25340"/>
+        <rect x="-2.2" y="7" width="4.4" height="1.6" fill="#8c3527"/>
+        <path class="cor-nib" d="M-2 13 L2 13 L0 16.6 Z" fill="#e15c4a"/>
+      </g>
+    </g>
+    <ellipse cx="-1" cy="-0.5" rx="4.4" ry="4" fill="#e8a56d"/>
+    <ellipse cx="-4.2" cy="2.4" rx="2" ry="2.4" fill="#e8a56d"/>
+  </g>
+  </g>
+
+  <!-- floor glow while the pass is running -->
+  <ellipse class="cor-glow" cx="75" cy="129" rx="72" ry="6" fill="#81ecff"/>
+</svg>

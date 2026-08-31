@@ -1,0 +1,436 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 130">
+  <!--
+    Quality — the gem grader at her bench.
+
+    The metaphor: this stage judges what is not wrong today but costs you
+    later. A grader does the same. She holds the new stone against the
+    case of stones the house already owns — the reuse audit, and a match
+    is a finding. She reads its cut and finish under the loupe — the
+    maintainability pass. Then she looks for the inclusion: the flaw that
+    breaks nothing now and cleaves the stone later under stress — the
+    freeze-and-crash pass. What she finds is plotted on the grading card,
+    and the card is the verdict.
+
+    Drawing style matches stages/pr-scan.svg, stages/discussion.svg and
+    stages/correctness.svg — flat fills, no outlines, shading by a second
+    darker tone, oversized head, heavy hooded lids. The figure uses the
+    same scale transform as the rest of the cast. Her bench apron is the
+    one bold colour here, the way the clerk's eyeshade, the secretary's
+    cardigan and the mechanic's hi-vis are theirs. She is the first of
+    the cast in her own skin tone, so the face carries its own pair —
+    #7a4a32 lit, #5e3624 shaded — rather than the shared one.
+
+    The pose is the trade's own: loupe to the eye, stone up to the loupe in
+    tweezers. A gem is a few millimetres, so the stone is a speck and the
+    magnification shows where it actually would — her eye, enormous behind
+    the glass, against her other eye at life size. That is why the card
+    carries the findings rather than the stone: it is the only surface in
+    the frame big enough to read them on, and it is where a grader's
+    findings go anyway.
+
+    Everything is drawn front-on, the figure included, so nothing she works
+    on is laid flat: the grading card is a board stood up under its clip the
+    way the mechanic's checklist is. A prop lying on the bench would have to
+    be drawn from above, and the frame has no second projection to put it
+    in.
+
+    The box is 150x130 with the origin at the top-left and the machine's
+    ground line at y=130.
+
+    While a run is live the dashboard wraps this art in an element carrying
+    data-machine-phase ("pending" | "active" | "done") and data-machine-state
+    (the stage's latest machine:state). React to them with CSS, as the
+    <style> below does. Use CSS animations, not SMIL <animate> — only CSS can
+    key off those attributes, and <animate> is stripped for safety.
+
+    States this art reacts to. The runner owns "active" / "complete" /
+    "failed" / "filtered"; quality.ts sets the rest:
+      grading   the review is running — the three passes as one continuous
+                7.2s choreography (GRADE_CYCLE_MS in the fixture twin):
+                read the case, catch the match, work the facets, find the
+                inclusion, mark the card. Keep the two in step if either
+                changes.
+      clean     the report's first line reads CLEAN
+      findings  the report's first line reads N QUALITY FINDINGS
+      verdict-unclear
+                the report opens with neither, so no grade is shown
+
+    The verdict states are a held beat, not a resting look: the runner
+    emits its own terminal machine:state the moment the stage returns, so
+    the pacer holds the verdict for one animation loop and the machine
+    then settles into the [data-machine-phase="done"] look.
+
+    Ids and class names are page-global once inlined — every one here is
+    prefixed "qua-" so machines don't collide. Anything that rotates or
+    scales pins its own transform-box + transform-origin rather than
+    relying on the initial values, which differ enough between engines to
+    fling an element off its pivot.
+  -->
+  <style>
+    /* Pivots. The loupe turns at the wrist end of its handle, the pen at
+       the grip, an eye at its centre. */
+    .qua-tweez { transform-box: fill-box; transform-origin: 4% 92%; }
+    .qua-eye   { transform-box: fill-box; transform-origin: 50% 50%; }
+
+    /* Resting look — what the machine shows before a run starts. */
+    .qua-ref,
+    .qua-match,
+    .qua-row,
+    .qua-plot,
+    .qua-glint,
+    .qua-tick,
+    .qua-glow  { opacity: 0; }
+    .qua-lamp  { opacity: 0.3; }
+    .qua-glass { opacity: 0.14; }
+
+    /* At the bench: she breathes, the lamps tick over, the glass catches
+       the light for as long as she is on the job. */
+    [data-machine-phase="active"] .qua-glow   { animation: qua-breathe 2.6s ease-in-out infinite; }
+    [data-machine-phase="active"] .qua-grader { animation: qua-bob 1.8s ease-in-out infinite; }
+    [data-machine-phase="active"] .qua-lamp   { animation: qua-lamp-blink 1.3s ease-in-out infinite; }
+    [data-machine-phase="active"] .qua-eye    { animation: qua-wink 4.1s ease-in-out infinite; }
+    [data-machine-phase="active"] .qua-glass  { opacity: 0.26; }
+
+    /* The three passes as one continuous cycle, each landing a line on the
+       card: she reads the case for something the house already owns and
+       catches the match, turns the stone at the glass for its cut and
+       finish, then finds the inclusion and plots it. */
+    [data-machine-state="grading"] .qua-pupil { animation: qua-look 7.2s ease-in-out infinite; }
+    [data-machine-state="grading"] .qua-tweez { animation: qua-turn 7.2s ease-in-out infinite; }
+    [data-machine-state="grading"] .qua-glint { animation: qua-flash 7.2s ease-in-out infinite; }
+    /* Scoped to the state, not bare classes: the rule above sets `animation`
+       as a shorthand, which resets animation-delay to 0s, and an unscoped
+       .qua-r1 would lose to it on specificity and stagger nothing. */
+    [data-machine-state="grading"] .qua-ref   { animation: qua-read 7.2s ease-in-out infinite; }
+    [data-machine-state="grading"] .qua-match { animation: qua-hit 7.2s ease-in-out infinite; }
+    [data-machine-state="grading"] .qua-row   { animation: qua-write 7.2s ease-out infinite; }
+    [data-machine-state="grading"] .qua-plot  { animation: qua-mark 7.2s ease-out infinite; }
+
+    /* Where each element falls in the 7.2s cycle. The case is read left to
+       right in the first beat; the facets light one at a time in the
+       second. Nothing fires twice in the same beat, so the cycle reads as
+       someone working rather than a pulse. */
+    [data-machine-state="grading"] .qua-r1 { animation-delay: 0s; }
+    [data-machine-state="grading"] .qua-r2 { animation-delay: 0.1s; }
+    [data-machine-state="grading"] .qua-r3 { animation-delay: 0.2s; }
+    [data-machine-state="grading"] .qua-r4 { animation-delay: 0.3s; }
+    [data-machine-state="grading"] .qua-r5 { animation-delay: 0.4s; }
+    [data-machine-state="grading"] .qua-r6 { animation-delay: 0.5s; }
+    [data-machine-state="grading"] .qua-r7 { animation-delay: 0.6s; }
+    [data-machine-state="grading"] .qua-r8 { animation-delay: 0.7s; }
+    /* One line of the write-up per pass, in the beat that earned it. */
+    [data-machine-state="grading"] .qua-w1 { animation-delay: 1.3s; }
+    [data-machine-state="grading"] .qua-w2 { animation-delay: 3.3s; }
+    [data-machine-state="grading"] .qua-w3 { animation-delay: 5.5s; }
+
+    /* Nothing to hold against the house, nothing under the surface: the
+       card is stamped and the stone reads through. */
+    [data-machine-state="clean"] .qua-tick  { opacity: 1; }
+    [data-machine-state="clean"] .qua-glass { opacity: 0.34; }
+    [data-machine-state="clean"] .qua-lamp  { opacity: 0.85; animation: none; }
+    [data-machine-state="clean"] .qua-row   { opacity: 0.35; animation: none; }
+
+    /* Findings: the match stands, the inclusion stands, and every one of
+       them goes on the card in red. */
+    [data-machine-state="findings"] .qua-plot  { opacity: 1; animation: none; }
+    [data-machine-state="findings"] .qua-row   { opacity: 1; fill: #e15c4a; animation: none; }
+    [data-machine-state="findings"] .qua-match { opacity: 1; animation: none; }
+    [data-machine-state="findings"] .qua-lamp  { fill: #ffb148; opacity: 0.9; animation: none; }
+
+    /* The report opens with neither a grade nor a finding count — no grade
+       to show. The lamps go amber and the stone is left unmarked. */
+    [data-machine-state="verdict-unclear"] .qua-lamp { fill: #ffb148; opacity: 0.9; animation: none; }
+
+    /* Grading over. */
+    [data-machine-phase="done"] .qua-lamp  { opacity: 0.7; }
+    [data-machine-phase="done"] .qua-glass { opacity: 0.24; }
+
+    /* The stone came off the bench while the ticket queued — nothing on
+       the paper to grade. */
+    [data-machine-state="filtered"] .qua-stone  { opacity: 0.12; }
+    [data-machine-state="filtered"] .qua-grader { transform: translateY(2px); }
+
+    /* The pass could not be run at all — the glass goes dead. */
+    [data-machine-state="failed"] .qua-grader { transform: translateY(3px); }
+    [data-machine-state="failed"] .qua-lamp   { fill: #e15c4a; opacity: 0.85; animation: none; }
+    [data-machine-state="failed"] .qua-apron  { fill: #6d7f88; }
+    [data-machine-state="failed"] .qua-loupe  { animation: none; }
+
+    [data-machine-state="filtered"] .qua-glass,
+    [data-machine-state="failed"]   .qua-glass { opacity: 0.06; }
+    [data-machine-state="failed"]   .qua-tweez { animation: none; }
+
+    @keyframes qua-bob {
+      0%, 100% { transform: translateY(0); }
+      50%      { transform: translateY(-1.5px); }
+    }
+    @keyframes qua-breathe {
+      0%, 100% { opacity: 0.1; }
+      50%      { opacity: 0.22; }
+    }
+    @keyframes qua-lamp-blink {
+      0%, 100% { opacity: 0.3; }
+      50%      { opacity: 1; }
+    }
+    @keyframes qua-wink {
+      0%, 92%, 100% { transform: scaleY(1); }
+      96%           { transform: scaleY(0.12); }
+    }
+    /* Her eye does the looking — up to the case, then back to the glass.
+       The head cannot move: the loupe is held against it. */
+    @keyframes qua-look {
+      0%,  6%  { transform: translate(-1.6px, -1.2px); }
+      14%, 24% { transform: translate(1.6px, -1.2px); }
+      32%,100% { transform: translate(0, 0); }
+    }
+    /* One slot of the case read. */
+    @keyframes qua-read {
+      0%      { opacity: 0; }
+      2%      { opacity: 0.5; }
+      8%,100% { opacity: 0; }
+    }
+    /* The match — the stone the house already owns. */
+    @keyframes qua-hit {
+      0%,  13% { opacity: 0; }
+      16%, 26% { opacity: 1; }
+      30%,100% { opacity: 0; }
+    }
+    /* She turns the stone at the glass to work its cut and finish. */
+    @keyframes qua-turn {
+      0%,  28% { transform: rotate(0deg); }
+      38%      { transform: rotate(-3.2deg); }
+      48%      { transform: rotate(2.6deg); }
+      56%,100% { transform: rotate(0deg); }
+    }
+    /* And it throws light back as it turns. */
+    @keyframes qua-flash {
+      0%,  32% { opacity: 0; }
+      40%      { opacity: 0.9; }
+      46%      { opacity: 0.2; }
+      52%      { opacity: 0.8; }
+      58%,100% { opacity: 0; }
+    }
+    /* A line of the write-up, landed by the pass that earned it. */
+    @keyframes qua-write {
+      0%      { opacity: 0; }
+      2%, 88% { opacity: 1; }
+      96%,100%{ opacity: 0; }
+    }
+    /* The inclusion plotted on the card: nothing is wrong with the stone
+       until she finds it, and then it is on the record. */
+    @keyframes qua-mark {
+      0%,  62% { opacity: 0; }
+      66%, 88% { opacity: 1; }
+      96%,100% { opacity: 0; }
+    }
+  </style>
+
+  <!-- the reference case: one slot per stone the house already owns. What
+       the diff builds is held against these, and a match is a finding. The
+       top row leaves its middle slot out, in the gap her crown takes up. -->
+  <rect x="4" y="2" width="142" height="42" rx="5" fill="#1b3350"/>
+  <rect x="8" y="6" width="134" height="34" rx="3" fill="#142840"/>
+  <g>
+    <g transform="translate(20 13)">
+      <rect x="-9" y="-7" width="18" height="14" rx="2" fill="#0f2138"/>
+      <path d="M0 -4.4 L4.4 -0.9 L0 4.4 L-4.4 -0.9 Z" fill="#3aa8d6"/>
+      <path d="M0 -4.4 L4.4 -0.9 L-4.4 -0.9 Z" fill="#81ecff" opacity="0.65"/>
+      <rect class="qua-ref qua-r1" x="-9" y="-7" width="18" height="14" rx="2" fill="#81ecff"/>
+    </g>
+    <g transform="translate(44 13)">
+      <rect x="-9" y="-7" width="18" height="14" rx="2" fill="#0f2138"/>
+      <path d="M0 -4.4 L4.4 -0.9 L0 4.4 L-4.4 -0.9 Z" fill="#3aa8d6"/>
+      <path d="M0 -4.4 L4.4 -0.9 L-4.4 -0.9 Z" fill="#81ecff" opacity="0.65"/>
+      <rect class="qua-ref qua-r2" x="-9" y="-7" width="18" height="14" rx="2" fill="#81ecff"/>
+    </g>
+    <!-- the one the new stone turns out to be a copy of -->
+    <g transform="translate(100 13)">
+      <rect x="-9" y="-7" width="18" height="14" rx="2" fill="#0f2138"/>
+      <path d="M0 -4.4 L4.4 -0.9 L0 4.4 L-4.4 -0.9 Z" fill="#3aa8d6"/>
+      <path d="M0 -4.4 L4.4 -0.9 L-4.4 -0.9 Z" fill="#81ecff" opacity="0.65"/>
+      <rect class="qua-ref qua-r3" x="-9" y="-7" width="18" height="14" rx="2" fill="#81ecff"/>
+      <rect class="qua-match" x="-9" y="-7" width="18" height="14" rx="2" fill="none" stroke="#ffb148" stroke-width="1.6"/>
+    </g>
+    <g transform="translate(124 13)">
+      <rect x="-9" y="-7" width="18" height="14" rx="2" fill="#0f2138"/>
+      <path d="M0 -4.4 L4.4 -0.9 L0 4.4 L-4.4 -0.9 Z" fill="#3aa8d6"/>
+      <path d="M0 -4.4 L4.4 -0.9 L-4.4 -0.9 Z" fill="#81ecff" opacity="0.65"/>
+      <rect class="qua-ref qua-r4" x="-9" y="-7" width="18" height="14" rx="2" fill="#81ecff"/>
+    </g>
+    <g transform="translate(18 32)">
+      <rect x="-9" y="-7" width="18" height="14" rx="2" fill="#0f2138"/>
+      <path d="M0 -4.4 L4.4 -0.9 L0 4.4 L-4.4 -0.9 Z" fill="#3aa8d6"/>
+      <path d="M0 -4.4 L4.4 -0.9 L-4.4 -0.9 Z" fill="#81ecff" opacity="0.65"/>
+      <rect class="qua-ref qua-r5" x="-9" y="-7" width="18" height="14" rx="2" fill="#81ecff"/>
+    </g>
+    <g transform="translate(40 32)">
+      <rect x="-9" y="-7" width="18" height="14" rx="2" fill="#0f2138"/>
+      <path d="M0 -4.4 L4.4 -0.9 L0 4.4 L-4.4 -0.9 Z" fill="#3aa8d6"/>
+      <path d="M0 -4.4 L4.4 -0.9 L-4.4 -0.9 Z" fill="#81ecff" opacity="0.65"/>
+      <rect class="qua-ref qua-r6" x="-9" y="-7" width="18" height="14" rx="2" fill="#81ecff"/>
+    </g>
+    <g transform="translate(110 32)">
+      <rect x="-9" y="-7" width="18" height="14" rx="2" fill="#0f2138"/>
+      <path d="M0 -4.4 L4.4 -0.9 L0 4.4 L-4.4 -0.9 Z" fill="#3aa8d6"/>
+      <path d="M0 -4.4 L4.4 -0.9 L-4.4 -0.9 Z" fill="#81ecff" opacity="0.65"/>
+      <rect class="qua-ref qua-r7" x="-9" y="-7" width="18" height="14" rx="2" fill="#81ecff"/>
+    </g>
+    <g transform="translate(132 32)">
+      <rect x="-9" y="-7" width="18" height="14" rx="2" fill="#0f2138"/>
+      <path d="M0 -4.4 L4.4 -0.9 L0 4.4 L-4.4 -0.9 Z" fill="#3aa8d6"/>
+      <path d="M0 -4.4 L4.4 -0.9 L-4.4 -0.9 Z" fill="#81ecff" opacity="0.65"/>
+      <rect class="qua-ref qua-r8" x="-9" y="-7" width="18" height="14" rx="2" fill="#81ecff"/>
+    </g>
+  </g>
+
+  <!-- the grader. Her arms, the glass and the tweezers are inside this
+       group, not siblings of it: the glass is held against her eye, so
+       anything that moves her — the breathing bob, the slump on a failed
+       run — has to move all of it at once or the glass slides off her face
+       and the eye behind it goes with the glass instead of with her. -->
+  <g class="qua-grader">
+    <!-- smock, then the bench apron over it -->
+    <path d="M54 103 L56 80 Q57 73 66 73 L84 73 Q93 73 94 80 L96 103 Z" fill="#8494a6"/>
+    <path class="qua-apron" d="M62 103 L62 80 Q62 77 66 77 L84 77 Q88 77 88 80 L88 103 Z" fill="#2f9e8f"/>
+    <path d="M65 77 L75 84 L85 77 Z" fill="#9aa9ba"/>
+    <!-- the two pockets a bench apron carries: papers in one, tweezers in
+         the other -->
+    <g fill="#227a70">
+      <rect x="65" y="90" width="9" height="8" rx="1.5"/>
+      <rect x="76" y="90" width="9" height="8" rx="1.5"/>
+    </g>
+    <rect x="79" y="86" width="1.6" height="6" rx="0.8" fill="#7a818a"/>
+
+    <!-- head, set down into the shoulders. It carries no glance of its
+         own: the glass is held against it, so moving the head would slide
+         it off her eye. The pupil inside the glass does the looking. -->
+    <g transform="translate(75 54.24) scale(1.28) translate(-75 -61)">
+      <!-- the afro sits behind the head so it rings the crown and breaks
+           the silhouette above it, in the gap the case's second row
+           leaves open. Ears are drawn over it. -->
+      <ellipse cx="75" cy="49" rx="20" ry="13.5" fill="#9e3b21"/>
+      <circle cx="60.5" cy="47" r="6.5" fill="#9e3b21"/>
+      <circle cx="66.5" cy="40" r="7" fill="#9e3b21"/>
+      <circle cx="75" cy="38" r="7.5" fill="#9e3b21"/>
+      <circle cx="83.5" cy="40" r="7" fill="#9e3b21"/>
+      <circle cx="89.5" cy="47" r="6.5" fill="#9e3b21"/>
+      <ellipse cx="67" cy="42" rx="7" ry="4" fill="#bf5433"/>
+
+      <!-- head -->
+      <rect x="59" y="44" width="32" height="34" rx="14" fill="#7a4a32"/>
+      <!-- hairline, coming down close to the brow -->
+      <path d="M58.5 62 Q58 43.5 75 43.5 Q92 43.5 91.5 62 Q89 57.5 84 56 Q75 54.4 66 56 Q61 57.5 58.5 62 Z" fill="#9e3b21"/>
+      <!-- ears, and the stud in one of them -->
+      <ellipse cx="57.5" cy="63" rx="3" ry="4.2" fill="#5e3624"/>
+      <ellipse cx="92.5" cy="63" rx="3" ry="4.2" fill="#5e3624"/>
+      <circle cx="57.2" cy="68.5" r="1.7" fill="#ffb148"/>
+
+      <!-- eyes: big ovals under heavy hooded lids, each drawn around its
+           own origin so the blink scales in place -->
+      <g transform="translate(68.5 68.5)">
+        <g class="qua-eye">
+          <ellipse rx="4.3" ry="4.7" fill="#f4f7fa"/>
+          <ellipse cy="1.4" rx="2" ry="2.2" fill="#2b1c20"/>
+          <path d="M-4.7 -1.4 Q-4.7 -5.6 0 -5.6 Q4.7 -5.6 4.7 -1.4 Q0 -3.4 -4.7 -1.4 Z" fill="#2b1c20"/>
+          <path d="M-6.4 -3.6 L-4.2 -1.7 L-4.9 -0.5 Z" fill="#2b1c20"/>
+        </g>
+      </g>
+      <g transform="translate(81.5 68.5)">
+        <g class="qua-eye">
+          <ellipse rx="4.3" ry="4.7" fill="#f4f7fa"/>
+          <ellipse cy="1.4" rx="2" ry="2.2" fill="#2b1c20"/>
+          <path d="M-4.7 -1.4 Q-4.7 -5.6 0 -5.6 Q4.7 -5.6 4.7 -1.4 Q0 -3.4 -4.7 -1.4 Z" fill="#2b1c20"/>
+          <path d="M6.4 -3.6 L4.2 -1.7 L4.9 -0.5 Z" fill="#2b1c20"/>
+        </g>
+      </g>
+
+      <!-- nose -->
+      <ellipse cx="75" cy="71" rx="3.8" ry="2.6" fill="#5e3624"/>
+      <path d="M71.6 74.6 Q75 77.4 78.4 74.6 Q75 76.2 71.6 74.6 Z" fill="#9c4a52"/>
+    </g>
+
+    <!-- the loupe arm: forearm up, elbow out, the way a glass is actually
+         brought to the eye -->
+    <path d="M94 94 L102 87 L97 81" stroke="#8494a6" stroke-width="8"
+          stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <!-- the glass, at her eye. What it magnifies is her own eye, so the
+         magnification is on screen: this one against the other at life size
+         is the whole of it. -->
+    <g class="qua-loupe">
+      <path d="M85 74 L93 78.5" stroke="#262b33" stroke-width="4" stroke-linecap="round" fill="none"/>
+      <ellipse cx="95.5" cy="80" rx="4.4" ry="4" fill="#7a4a32"/>
+      <circle class="qua-glass" cx="84" cy="64" r="9.6" fill="#81ecff"/>
+      <!-- the eye, at glass scale -->
+      <g class="qua-eye">
+        <ellipse cx="84" cy="64" rx="7" ry="7.6" fill="#f4f7fa"/>
+        <ellipse class="qua-pupil" cx="84.6" cy="66.2" rx="3.2" ry="3.5" fill="#2b1c20"/>
+        <path d="M76.7 61.8 Q76.7 55.3 84 55.3 Q91.3 55.3 91.3 61.8 Q84 58.7 76.7 61.8 Z" fill="#2b1c20"/>
+        <path d="M93.2 58.6 L90.4 61.4 L91.4 63.2 Z" fill="#2b1c20"/>
+      </g>
+      <circle cx="84" cy="64" r="9.6" fill="none" stroke="#262b33" stroke-width="2.4"/>
+      <circle cx="84" cy="64" r="11" fill="none" stroke="#3a424e" stroke-width="1"/>
+    </g>
+
+    <!-- the tweezer arm, bringing the stone up to the glass -->
+    <path d="M58 95 L56 87 L64 81" stroke="#8494a6" stroke-width="8"
+          stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <g class="qua-tweez">
+      <ellipse cx="67" cy="80" rx="4.4" ry="4" fill="#7a4a32"/>
+      <ellipse cx="69.5" cy="82.5" rx="2" ry="2.4" fill="#7a4a32"/>
+      <!-- tweezers: two tines off one tip, the way a pair actually closes -->
+      <g stroke="#7a818a" stroke-width="1.1" stroke-linecap="round" fill="none">
+        <path d="M77.6 66.6 L66 78.5"/>
+        <path d="M77.6 66.6 L68 80.4"/>
+      </g>
+      <rect x="69.5" y="75.5" width="5" height="1.6" rx="0.8" fill="#5c636b" transform="rotate(-44 72 76.3)"/>
+      <!-- the stone: a few millimetres of it, held at the glass. It is a
+           speck because a gem is a speck — the size of the finding is on the
+           card, not here. -->
+      <g class="qua-stone">
+        <path d="M76.9 62.9 L81.1 62.9 L82.2 64 L82.2 65.6 L81.1 66.7 L76.9 66.7 L75.8 65.6 L75.8 64 Z" fill="#1f6d99"/>
+        <path d="M77.9 64 L80.1 64 L80.9 64.8 L80.1 65.6 L77.9 65.6 L77.1 64.8 Z" fill="#3aa8d6"/>
+        <path class="qua-glint" d="M76.9 62.9 L81.1 62.9 L80.1 64 L77.9 64 Z" fill="#dff8ff"/>
+      </g>
+    </g>
+  </g>
+
+  <!-- bench -->
+  <rect x="2" y="102" width="146" height="9" rx="2.5" fill="#1c3450"/>
+  <rect x="3" y="102.5" width="144" height="5" rx="2" fill="#2a4a6b"/>
+  <rect x="30" y="111" width="90" height="15" fill="#16293f"/>
+  <rect x="26" y="126" width="18" height="4" rx="1.5" fill="#101f31"/>
+  <rect x="106" y="126" width="18" height="4" rx="1.5" fill="#101f31"/>
+  <!-- stone drawers and status lamps on the bench front -->
+  <rect x="56" y="114" width="38" height="9" rx="2.5" fill="#101f31"/>
+  <g fill="#2d7fa8">
+    <rect x="61" y="116" width="28" height="1.8" rx="0.9"/>
+    <rect x="61" y="119.5" width="28" height="1.8" rx="0.9"/>
+  </g>
+  <circle class="qua-lamp" cx="38" cy="118.5" r="2.6" fill="#81ecff"/>
+  <circle class="qua-lamp" cx="46" cy="118.5" r="2.6" fill="#3aa8d6"/>
+
+  <!-- the grading card: the plot of the stone, every finding marked on it,
+       and the line-by-line write-up beside it. Stood up under its clip, the
+       way the mechanic's checklist is. This is the verdict. -->
+  <rect x="18" y="77" width="14" height="4" rx="1.5" fill="#7a818a"/>
+  <rect x="4" y="80" width="42" height="22" rx="2" fill="#f0e4c8"/>
+  <path d="M11 84 L21 84 L25 87.5 L25 92.5 L21 96 L11 96 L7 92.5 L7 87.5 Z"
+        fill="#d2bf94" stroke="#7d7360" stroke-width="1.1"/>
+  <path d="M13 87.1 L19 87.1 L21 89 L21 91 L19 92.9 L13 92.9 L11 91 L11 89 Z"
+        fill="#e6d8b4" stroke="#7d7360" stroke-width="0.9"/>
+  <g class="qua-plot" fill="#e15c4a">
+    <path d="M12.6 86.9 l1.7 1.3 l-1.7 1.3 l-1.7 -1.3 Z"/>
+    <path d="M19.4 90.5 l1.6 1.2 l-1.6 1.2 l-1.6 -1.2 Z"/>
+    <path d="M15.4 91.9 l1.5 1.2 l-1.5 1.2 l-1.5 -1.2 Z"/>
+  </g>
+  <g fill="#d4c39d">
+    <rect class="qua-row qua-w1" x="29" y="84.5" width="15" height="1.8" rx="0.9"/>
+    <rect class="qua-row qua-w2" x="29" y="89.5" width="12" height="1.8" rx="0.9"/>
+    <rect class="qua-row qua-w3" x="29" y="94.5" width="14" height="1.8" rx="0.9"/>
+  </g>
+  <!-- the stamp the card takes when there is nothing to plot -->
+  <path class="qua-tick" d="M9.8 89.5 L14 93.7 L21.6 86.1 L23.2 87.7 L14 96.9 L8.2 91.1 Z" fill="#81ecff"/>
+
+  <!-- floor glow while the grading is running -->
+  <ellipse class="qua-glow" cx="75" cy="129" rx="72" ry="6" fill="#81ecff"/>
+</svg>

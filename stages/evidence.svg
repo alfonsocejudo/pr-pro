@@ -1,0 +1,435 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 130">
+  <!--
+    Evidence — the printer in the darkroom.
+
+    The metaphor: this stage takes two reviewers' claims and puts each one
+    through the bath. What develops goes up on the line with its proof
+    attached; a sheet that comes up blank is a finding that did not
+    reproduce, and it stays blank on the line for anyone to see. The pair
+    on the right is the before/after capture the pass takes when the diff
+    changes something you can see. What is on the sheets is the footage
+    the Publish machine's tubes carry — the tracking shot of the car, the
+    wide of the hillside, the close-up of the blooms — so a capture that
+    goes out on the thread is recognisably a frame of what went to air.
+    The safelight is red because the work
+    is not safe to expose yet — when the verdict is APPROVE the white
+    overhead comes on, which in a darkroom is the signal that the work is
+    done.
+
+    Drawing style matches the rest of the cast — flat fills, no outlines,
+    shading by a second darker tone, oversized head, heavy hooded lids,
+    the same head rig and bench. Her apron is the one bold colour here,
+    the way the clerk's eyeshade, the secretary's cardigan, the mechanic's
+    hi-vis and the grader's are theirs. She is the only blonde in the
+    cast, which is what makes her readable in the darkest scene of the six.
+
+    Everything is drawn front-on, the figure included, so nothing she works
+    on is laid flat: prints hang on a wire facing the viewer, the sheet in
+    her hand is held up to face it, and the developing tray is seen from
+    its near side. A prop lying on the bench would have to be drawn from
+    above, and the frame has no second projection to put it in.
+
+    The box is 150x130 with the origin at the top-left and the machine's
+    ground line at y=130.
+
+    While a run is live the dashboard wraps this art in an element carrying
+    data-machine-phase ("pending" | "active" | "done") and data-machine-state
+    (the stage's latest machine:state). React to them with CSS, as the
+    <style> below does. Use CSS animations, not SMIL <animate> — only CSS can
+    key off those attributes, and <animate> is stripped for safety.
+
+    States this art reacts to. The runner owns "active" / "complete" /
+    "failed" / "filtered"; evidence.ts sets the rest:
+      developing         the pass is running — claims go through the bath
+                         and up on the line, one of them coming up blank.
+                         A 7.2s choreography (DEVELOP_CYCLE_MS in the
+                         fixture twin); keep the two in step if either
+                         changes.
+      approved           the verified review's verdict line reads APPROVE
+      changes-requested  the verified review's verdict line reads REQUEST
+                         CHANGES
+      verdict-unclear    the review opens with neither, so no call is shown
+
+    The verdict states are a held beat, not a resting look: the runner
+    emits its own terminal machine:state the moment the stage returns, so
+    the pacer holds the verdict for one animation loop and the machine
+    then settles into the [data-machine-phase="done"] look.
+
+    Ids and class names are page-global once inlined — every one here is
+    prefixed "evd-" so machines don't collide. Anything that rotates pins
+    its own transform-box + transform-origin rather than relying on the
+    initial values, which differ enough between engines to fling an
+    element off its pivot.
+  -->
+  <defs>
+    <!-- the safelight's falloff. A flat red cone on a near-black wall reads
+         as a stain rather than as light; the fade to transparent is what
+         makes it read as thrown light. -->
+    <linearGradient id="evd-safe-cone" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ff7a5c" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#ff7a5c" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <style>
+    /* Pivots. The arm holding the sheet turns at the shoulder, an eye at
+       its centre. */
+    .evd-hold { transform-box: fill-box; transform-origin: 12% 65%; }
+    .evd-eye { transform-box: fill-box; transform-origin: 50% 50%; }
+
+    /* Resting look — nothing has been put up yet. */
+    .evd-print,
+    .evd-img,
+    .evd-fail,
+    .evd-mark,
+    .evd-bath,
+    .evd-white,
+    .evd-glow  { opacity: 0; }
+    .evd-lamp  { opacity: 0.3; }
+    .evd-safe  { opacity: 0.35; }
+    .evd-wash  { opacity: 0; }
+
+    /* On shift: she breathes, the safelight is lit, the lamps tick over. */
+    [data-machine-phase="active"] .evd-glow { animation: evd-breathe 2.6s ease-in-out infinite; }
+    [data-machine-phase="active"] .evd-fig  { animation: evd-bob 1.8s ease-in-out infinite; }
+    [data-machine-phase="active"] .evd-lamp { animation: evd-lamp-blink 1.3s ease-in-out infinite; }
+    [data-machine-phase="active"] .evd-eye  { animation: evd-wink 4.1s ease-in-out infinite; }
+    [data-machine-phase="active"] .evd-hold { animation: evd-examine 4.2s ease-in-out infinite; }
+    [data-machine-phase="active"] .evd-safe { opacity: 1; }
+    [data-machine-phase="active"] .evd-wash { opacity: 1; }
+
+    /* The pass: a claim goes into the bath, comes up, and goes on the line
+       — except the one that comes up blank and stays that way. */
+    [data-machine-state="developing"] .evd-print { animation: evd-hang 7.2s ease-out infinite; }
+    [data-machine-state="developing"] .evd-img   { animation: evd-develop 7.2s ease-in-out infinite; }
+    [data-machine-state="developing"] .evd-fail  { animation: evd-nothing 7.2s ease-in-out infinite; }
+    [data-machine-state="developing"] .evd-bath  { animation: evd-rise 3.6s ease-in-out infinite; }
+
+    /* Order on the line: the first claim, then the one that does not
+       reproduce, then the before/after pair. */
+    /* Scoped to the state, not bare classes: the rule above sets `animation`
+       as a shorthand, which resets animation-delay to 0s, and an unscoped
+       .evd-h1 would lose to it on specificity and stagger nothing. */
+    [data-machine-state="developing"] .evd-h1 { animation-delay: 0s; }
+    [data-machine-state="developing"] .evd-h2 { animation-delay: 1.6s; }
+    [data-machine-state="developing"] .evd-h3 { animation-delay: 3.2s; }
+    [data-machine-state="developing"] .evd-h4 { animation-delay: 4.4s; }
+
+    /* Verdict: APPROVE turns the white overhead on, which is the darkroom's
+       own signal that there is nothing left to expose. */
+    [data-machine-state="approved"] .evd-print,
+    [data-machine-state="approved"] .evd-img,
+    [data-machine-state="approved"] .evd-white { opacity: 0.85; }
+    [data-machine-state="approved"] .evd-wash  { opacity: 0.25; }
+    [data-machine-state="approved"] .evd-safe  { opacity: 0.3; animation: none; }
+    [data-machine-state="approved"] .evd-lamp  { opacity: 0.85; animation: none; }
+
+    /* REQUEST CHANGES: the safelight stays on and every print that held up
+       carries the grease-pencil ring the finding earned. */
+    [data-machine-state="changes-requested"] .evd-print,
+    [data-machine-state="changes-requested"] .evd-img,
+    [data-machine-state="changes-requested"] .evd-mark { opacity: 1; }
+    [data-machine-state="changes-requested"] .evd-safe { opacity: 1; animation: evd-lamp-blink 1.6s ease-in-out infinite; }
+    [data-machine-state="changes-requested"] .evd-lamp { fill: #ffb148; opacity: 0.9; animation: none; }
+
+    /* The verified review opens with no verdict — nothing to hold up. The
+       lamps go amber and no result is shown either way. */
+    [data-machine-state="verdict-unclear"] .evd-lamp { fill: #ffb148; opacity: 0.9; animation: none; }
+
+    /* Shift over. */
+    [data-machine-phase="done"] .evd-print,
+    [data-machine-phase="done"] .evd-img   { opacity: 1; }
+    [data-machine-phase="done"] .evd-lamp { opacity: 0.7; }
+
+    /* Nothing came through to verify. */
+    [data-machine-state="filtered"] .evd-print,
+    [data-machine-state="filtered"] .evd-img,
+    [data-machine-state="filtered"] .evd-fig  { transform: translateY(2px); }
+
+    /* The pass could not be run — the safelight is the only thing left on. */
+    [data-machine-state="failed"] .evd-fig  { transform: translateY(3px); }
+    [data-machine-state="failed"] .evd-lamp { fill: #e15c4a; opacity: 0.85; animation: none; }
+    [data-machine-state="failed"] .evd-apron{ fill: #6a6478; }
+    [data-machine-state="failed"] .evd-hold { animation: none; }
+    [data-machine-state="failed"] .evd-print,
+    [data-machine-state="failed"] .evd-img  { opacity: 0; }
+
+    @keyframes evd-bob {
+      0%, 100% { transform: translateY(0); }
+      50%      { transform: translateY(-1.5px); }
+    }
+    @keyframes evd-breathe {
+      0%, 100% { opacity: 0.1; }
+      50%      { opacity: 0.22; }
+    }
+    @keyframes evd-lamp-blink {
+      0%, 100% { opacity: 0.3; }
+      50%      { opacity: 1; }
+    }
+    @keyframes evd-wink {
+      0%, 92%, 100% { transform: scaleY(1); }
+      96%           { transform: scaleY(0.12); }
+    }
+    /* A sheet goes up on the line and stays up for the rest of the pass. */
+    @keyframes evd-hang {
+      0%       { opacity: 0; transform: translateY(-5px); }
+      5%       { opacity: 1; transform: translateY(0); }
+      92%      { opacity: 1; transform: translateY(0); }
+      100%     { opacity: 0; transform: translateY(0); }
+    }
+    /* The image coming up on the paper — the claim's proof arriving. */
+    @keyframes evd-develop {
+      0%,  6%  { opacity: 0; }
+      18%, 92% { opacity: 1; }
+      100%     { opacity: 0; }
+    }
+    /* And the one that never arrives: a ghost of an image, then nothing.
+       The sheet stays on the line blank, which is the whole point of it. */
+    @keyframes evd-nothing {
+      0%,  6%  { opacity: 0; }
+      11%      { opacity: 0.3; }
+      18%,100% { opacity: 0; }
+    }
+    /* A print coming up in the developer. */
+    @keyframes evd-rise {
+      0%,  15% { opacity: 0; }
+      50%, 78% { opacity: 0.85; }
+      92%,100% { opacity: 0; }
+    }
+    /* Turning the sheet in her hand towards the safelight. */
+    @keyframes evd-examine {
+      0%, 100% { transform: rotate(-2.5deg); }
+      50%      { transform: rotate(1.5deg); }
+    }
+  </style>
+
+  <!-- the darkroom itself: a back wall, the safelight, and the white
+       overhead that only comes on when the work is signed off -->
+  <rect x="0" y="0" width="150" height="54" fill="#0d1622"/>
+  <path d="M4 4 L16 4 L19 11 L1 11 Z" fill="#262b33"/>
+  <path class="evd-wash" d="M10 12 L-2 40 L23 40 Z" fill="url(#evd-safe-cone)"/>
+  <circle class="evd-safe" cx="10" cy="12" r="3.4" fill="#e15c4a"/>
+  <rect x="70" y="0" width="10" height="4" rx="1.5" fill="#262b33"/>
+  <path d="M67 4 L83 4 L86 9 L64 9 Z" fill="#3a424e"/>
+  <ellipse class="evd-white" cx="75" cy="11" rx="13" ry="6" fill="#f4f7fa"/>
+  <circle class="evd-white" cx="75" cy="7.5" r="2.4" fill="#f4f7fa"/>
+
+  <!-- the drying line -->
+  <path d="M4 13 Q75 19 146 13" fill="none" stroke="#3a4a5e" stroke-width="1.2"/>
+
+  <!-- what held up, pegged where anyone can see it. Each print carries the
+       proof the claim earned; the second one came up blank. -->
+  <g transform="translate(26 15)">
+  <g class="evd-print evd-h1">
+    <rect x="-2.4" y="-3" width="4.8" height="6" rx="1.6" fill="#c3d0dd"/>
+    <rect x="-11" y="1" width="22" height="26" rx="1" fill="#e2e8ee"/>
+    <rect x="-9" y="3" width="18" height="19" rx="0.6" fill="#0d2136"/>
+    <g class="evd-img">
+      <!-- the tracking shot: the car held in frame, treeline and road behind -->
+      <rect x="-9" y="3" width="18" height="19" fill="#1d4e6b"/>
+      <rect x="-9" y="3" width="18" height="4.4" fill="#2f83a8"/>
+      <circle cx="5.4" cy="5.4" r="1.5" fill="#ffb148"/>
+      <g fill="#1a3d2f"><rect x="-6.3" y="8.4" width="0.6" height="1.6"/><rect x="-0.9" y="8.4" width="0.6" height="1.6"/><rect x="4.5" y="8.4" width="0.6" height="1.6"/></g>
+      <g fill="#2e6b52"><circle cx="-6" cy="8" r="1.5"/><circle cx="-0.6" cy="8" r="1.5"/><circle cx="4.8" cy="8" r="1.5"/></g>
+      <rect x="-9" y="9.6" width="18" height="3.4" fill="#2e6b52"/>
+      <rect x="-9" y="13" width="18" height="9" fill="#2f3944"/>
+      <rect x="-9" y="13" width="18" height="0.6" fill="#3f4a58"/>
+      <g fill="#c3d0dd"><rect x="-7.6" y="20" width="2.6" height="0.7" rx="0.35"/><rect x="-2.4" y="20" width="2.6" height="0.7" rx="0.35"/><rect x="2.8" y="20" width="2.6" height="0.7" rx="0.35"/></g>
+      <circle cx="-2.8" cy="18.6" r="1.1" fill="#161b22"/>
+      <circle cx="2.8" cy="18.6" r="1.1" fill="#161b22"/>
+      <path d="M-4.8 18.6 L-4.8 17.4 Q-4.8 16.9 -4 16.8 L-2.6 16.8 L-1.6 15.5 Q-1.3 15.2 -0.6 15.2 L1.4 15.2 Q2.1 15.2 2.4 15.6 L3.3 16.8 L4.2 17 Q4.8 17.1 4.8 17.6 L4.8 18.6 Z" fill="#f0e4c8"/>
+      <path d="M-4.8 18.6 L4.8 18.6 L4.8 18 L-4.8 18 Z" fill="#c9b98f"/>
+      <path d="M-1.2 16.7 L-0.3 15.6 Q-0.1 15.5 0.2 15.5 L0.2 16.7 Z" fill="#2f83a8"/>
+      <path d="M0.7 15.5 L1.3 15.5 Q1.8 15.5 2 15.8 L2.6 16.7 L0.7 16.7 Z" fill="#2f83a8"/>
+      <circle cx="4.4" cy="17.7" r="0.5" fill="#ffb148"/>
+      <circle cx="-4.5" cy="17.7" r="0.4" fill="#e8712c"/>
+    </g>
+    <circle class="evd-mark" cx="0" cy="12.5" r="7.4" fill="none" stroke="#e15c4a" stroke-width="1.4"/>
+    <rect x="-9" y="23.4" width="11" height="1.6" rx="0.8" fill="#b9c3cd"/>
+  </g>
+  </g>
+  <!-- the one that did not reproduce: it goes up like the rest, and stays
+       blank -->
+  <g transform="translate(50 15)">
+  <g class="evd-print evd-h2">
+    <rect x="-2.4" y="-3" width="4.8" height="6" rx="1.6" fill="#c3d0dd"/>
+    <rect x="-11" y="1" width="22" height="26" rx="1" fill="#e2e8ee"/>
+    <rect x="-9" y="3" width="18" height="19" rx="0.6" fill="#152b3f"/>
+    <g class="evd-fail">
+      <!-- the wide: the hillside the second shot holds on -->
+      <rect x="-9" y="3" width="18" height="19" fill="#22607f"/>
+      <rect x="-9" y="3" width="18" height="4.8" fill="#3193b8"/>
+      <path d="M-9 12.4 Q0 10.6 9 12.4 L9 22 L-9 22 Z" fill="#2e6b52"/>
+      <g fill="#1a3d2f"><rect x="-5.7" y="10.6" width="0.6" height="3"/><rect x="0.1" y="9.8" width="0.6" height="3.4"/><rect x="5.3" y="10.8" width="0.6" height="2.8"/></g>
+      <g fill="#3f8a63"><circle cx="-5.4" cy="10.4" r="1.4"/><circle cx="0.4" cy="9.6" r="1.6"/><circle cx="5.6" cy="10.6" r="1.3"/></g>
+      <path d="M-9 16.6 Q0 15.2 9 16.6 L9 22 L-9 22 Z" fill="#22523f"/>
+    </g>
+    <rect x="-9" y="23.4" width="8" height="1.6" rx="0.8" fill="#b9c3cd"/>
+  </g>
+  </g>
+  <!-- the before/after pair, tied together the way a pair is filed -->
+  <g transform="translate(104 15)">
+  <g class="evd-print evd-h3">
+    <rect x="-2.4" y="-3" width="4.8" height="6" rx="1.6" fill="#c3d0dd"/>
+    <rect x="-11" y="1" width="22" height="26" rx="1" fill="#e2e8ee"/>
+    <rect x="-9" y="3" width="18" height="19" rx="0.6" fill="#0d2136"/>
+    <g class="evd-img">
+      <!-- the close-up, before: two blooms in frame -->
+      <rect x="-9" y="3" width="18" height="19" fill="#2e6b52"/>
+      <rect x="-9" y="3" width="18" height="6" fill="#3f8a63"/>
+      <path d="M-3.6 12.6 L-3.6 22" stroke="#2a5c45" stroke-width="0.5" fill="none"/><ellipse cx="-2.7" cy="14.8" rx="0.9" ry="0.5" fill="#2a5c45"/><circle cx="-3.6" cy="11.75" r="0.72" fill="#f0e4c8"/><circle cx="-2.79" cy="12.34" r="0.72" fill="#f0e4c8"/><circle cx="-3.1" cy="13.29" r="0.72" fill="#f0e4c8"/><circle cx="-4.1" cy="13.29" r="0.72" fill="#f0e4c8"/><circle cx="-4.41" cy="12.34" r="0.72" fill="#f0e4c8"/><circle cx="-3.6" cy="12.6" r="0.62" fill="#ffb148"/>
+      <path d="M2.6 15.2 L2.6 22" stroke="#2a5c45" stroke-width="0.5" fill="none"/><ellipse cx="3.5" cy="17.4" rx="0.9" ry="0.5" fill="#2a5c45"/><circle cx="2.6" cy="14.35" r="0.72" fill="#f0e4c8"/><circle cx="3.41" cy="14.94" r="0.72" fill="#f0e4c8"/><circle cx="3.1" cy="15.89" r="0.72" fill="#f0e4c8"/><circle cx="2.1" cy="15.89" r="0.72" fill="#f0e4c8"/><circle cx="1.79" cy="14.94" r="0.72" fill="#f0e4c8"/><circle cx="2.6" cy="15.2" r="0.62" fill="#ffb148"/>
+    </g>
+    <circle class="evd-mark" cx="0" cy="12.5" r="7.4" fill="none" stroke="#e15c4a" stroke-width="1.4"/>
+    <rect x="-9" y="23.4" width="6" height="1.6" rx="0.8" fill="#7a818a"/>
+  </g>
+  </g>
+  <g transform="translate(130 15)">
+  <g class="evd-print evd-h4">
+    <rect x="-2.4" y="-3" width="4.8" height="6" rx="1.6" fill="#c3d0dd"/>
+    <rect x="-11" y="1" width="22" height="26" rx="1" fill="#e2e8ee"/>
+    <rect x="-9" y="3" width="18" height="19" rx="0.6" fill="#0d2136"/>
+    <g class="evd-img">
+      <!-- the close-up, after: the third bloom is what changed -->
+      <rect x="-9" y="3" width="18" height="19" fill="#2e6b52"/>
+      <rect x="-9" y="3" width="18" height="6" fill="#3f8a63"/>
+      <path d="M-3.6 12.6 L-3.6 22" stroke="#2a5c45" stroke-width="0.5" fill="none"/><ellipse cx="-2.7" cy="14.8" rx="0.9" ry="0.5" fill="#2a5c45"/><circle cx="-3.6" cy="11.75" r="0.72" fill="#f0e4c8"/><circle cx="-2.79" cy="12.34" r="0.72" fill="#f0e4c8"/><circle cx="-3.1" cy="13.29" r="0.72" fill="#f0e4c8"/><circle cx="-4.1" cy="13.29" r="0.72" fill="#f0e4c8"/><circle cx="-4.41" cy="12.34" r="0.72" fill="#f0e4c8"/><circle cx="-3.6" cy="12.6" r="0.62" fill="#ffb148"/>
+      <path d="M2.6 15.2 L2.6 22" stroke="#2a5c45" stroke-width="0.5" fill="none"/><ellipse cx="3.5" cy="17.4" rx="0.9" ry="0.5" fill="#2a5c45"/><circle cx="2.6" cy="14.35" r="0.72" fill="#f0e4c8"/><circle cx="3.41" cy="14.94" r="0.72" fill="#f0e4c8"/><circle cx="3.1" cy="15.89" r="0.72" fill="#f0e4c8"/><circle cx="2.1" cy="15.89" r="0.72" fill="#f0e4c8"/><circle cx="1.79" cy="14.94" r="0.72" fill="#f0e4c8"/><circle cx="2.6" cy="15.2" r="0.62" fill="#ffb148"/>
+      <path d="M6.2 11.4 L6.2 22" stroke="#2a5c45" stroke-width="0.5" fill="none"/><ellipse cx="7.1" cy="13.6" rx="0.9" ry="0.5" fill="#2a5c45"/><circle cx="6.2" cy="10.55" r="0.72" fill="#f0e4c8"/><circle cx="7.01" cy="11.14" r="0.72" fill="#f0e4c8"/><circle cx="6.7" cy="12.09" r="0.72" fill="#f0e4c8"/><circle cx="5.7" cy="12.09" r="0.72" fill="#f0e4c8"/><circle cx="5.39" cy="11.14" r="0.72" fill="#f0e4c8"/><circle cx="6.2" cy="11.4" r="0.62" fill="#ffb148"/>
+    </g>
+    <rect x="-9" y="23.4" width="6" height="1.6" rx="0.8" fill="#7a818a"/>
+  </g>
+  </g>
+
+  <!-- the printer. Her arms and the tongs are inside this group, not
+       siblings of it, so the breathing bob moves her and everything she is
+       holding together. -->
+  <g class="evd-fig">
+    <!-- shirt, then the darkroom apron over it -->
+    <path d="M54 103 L56 80 Q57 73 66 73 L84 73 Q93 73 94 80 L96 103 Z" fill="#c3ccd6"/>
+    <path class="evd-apron" d="M62 103 L62 80 Q62 77 66 77 L84 77 Q88 77 88 80 L88 103 Z" fill="#6b53a8"/>
+    <path d="M65 77 L75 84 L85 77 Z" fill="#d7dee6"/>
+    <g fill="#523d85">
+      <rect x="65" y="90" width="9" height="8" rx="1.5"/>
+      <rect x="76" y="90" width="9" height="8" rx="1.5"/>
+    </g>
+
+    <!-- head, set down into the shoulders -->
+    <g transform="translate(75 54.24) scale(1.28) translate(-75 -61)">
+      <!-- blonde, shoulder length: the mass sits behind the head and falls
+           past the ears onto the shoulders -->
+      <ellipse cx="75" cy="51" rx="17" ry="14" fill="#c9a848"/>
+      <path d="M56.5 58 Q53.5 73 57 85 L65 85 Q60.5 72 61.5 60 Z" fill="#b8963c"/>
+      <path d="M93.5 58 Q96.5 73 93 85 L85 85 Q89.5 72 88.5 60 Z" fill="#b8963c"/>
+      <ellipse cx="57.5" cy="63" rx="3" ry="4.2" fill="#cd8852"/>
+      <ellipse cx="92.5" cy="63" rx="3" ry="4.2" fill="#cd8852"/>
+      <rect x="59" y="44" width="32" height="34" rx="14" fill="#e8a56d"/>
+      <!-- the hairline, parted off-centre and sweeping to one side -->
+      <path d="M58.5 62 Q58 43.5 75 43.5 Q92 43.5 91.5 62 Q89 57.5 84 56 Q75 54.4 66 56 Q61 57.5 58.5 62 Z" fill="#e8c86a"/>
+      <path d="M71 43.8 Q60 46 58.7 58.5 Q61 55.5 66 54 Q69 48 71 43.8 Z" fill="#f5dc95"/>
+      <path d="M58.6 58 Q56.2 66 58 74 L61.4 72.8 Q59.8 66 61.4 59 Z" fill="#e8c86a"/>
+      <path d="M91.4 58 Q93.8 66 92 74 L88.6 72.8 Q90.2 66 88.6 59 Z" fill="#e8c86a"/>
+
+      <!-- eyes: big ovals under heavy hooded lids, each drawn around its
+           own origin so the blink scales in place -->
+      <g transform="translate(68.5 68.5)">
+        <g class="evd-eye">
+          <ellipse rx="4.3" ry="4.7" fill="#f4f7fa"/>
+          <ellipse cy="1.4" rx="2" ry="2.2" fill="#33232b"/>
+          <path d="M-4.7 -1.4 Q-4.7 -5.6 0 -5.6 Q4.7 -5.6 4.7 -1.4 Q0 -3.4 -4.7 -1.4 Z" fill="#33232b"/>
+          <path d="M-6.4 -3.6 L-4.2 -1.7 L-4.9 -0.5 Z" fill="#33232b"/>
+        </g>
+      </g>
+      <g transform="translate(81.5 68.5)">
+        <g class="evd-eye">
+          <ellipse rx="4.3" ry="4.7" fill="#f4f7fa"/>
+          <ellipse cy="1.4" rx="2" ry="2.2" fill="#33232b"/>
+          <path d="M-4.7 -1.4 Q-4.7 -5.6 0 -5.6 Q4.7 -5.6 4.7 -1.4 Q0 -3.4 -4.7 -1.4 Z" fill="#33232b"/>
+          <path d="M6.4 -3.6 L4.2 -1.7 L4.9 -0.5 Z" fill="#33232b"/>
+        </g>
+      </g>
+
+      <ellipse cx="75" cy="71" rx="3.4" ry="2.4" fill="#cd8852"/>
+      <path d="M71.6 74.6 Q75 77.4 78.4 74.6 Q75 76.2 71.6 74.6 Z" fill="#a8494f"/>
+    </g>
+
+    <!-- the tong arm, working the next sheet in the developer -->
+    <path d="M58 83 L49 87 L43 89" stroke="#c3ccd6" stroke-width="8"
+          stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <ellipse cx="41" cy="90" rx="4.4" ry="4" fill="#e8a56d"/>
+    <ellipse cx="43.5" cy="92.8" rx="2" ry="2.4" fill="#e8a56d"/>
+    <g stroke="#7a818a" stroke-width="1.3" stroke-linecap="round" fill="none">
+      <path d="M39 88.8 L30 92.4"/>
+      <path d="M39.6 91.2 L30 93.4"/>
+    </g>
+
+    <!-- the holding arm: the sheet she has just pulled out of the bath,
+         held up to the safelight to see what came up on it. The sheet is
+         drawn in the hanging print's own coordinates and scaled down as a
+         whole, so the still on it is the same markup the line carries. -->
+    <g class="evd-hold">
+      <path d="M92 83 L101 87 L107 88" stroke="#c3ccd6" stroke-width="8"
+            stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      <g transform="translate(113 76) scale(0.82) translate(0 -14)">
+        <rect x="-11" y="1" width="22" height="26" rx="1" fill="#e2e8ee"/>
+        <rect x="-9" y="3" width="18" height="19" rx="0.6" fill="#0d2136"/>
+        <g>
+          <!-- the tracking shot: the car held in frame, treeline and road behind -->
+          <rect x="-9" y="3" width="18" height="19" fill="#1d4e6b"/>
+          <rect x="-9" y="3" width="18" height="4.4" fill="#2f83a8"/>
+          <circle cx="5.4" cy="5.4" r="1.5" fill="#ffb148"/>
+          <g fill="#1a3d2f"><rect x="-6.3" y="8.4" width="0.6" height="1.6"/><rect x="-0.9" y="8.4" width="0.6" height="1.6"/><rect x="4.5" y="8.4" width="0.6" height="1.6"/></g>
+          <g fill="#2e6b52"><circle cx="-6" cy="8" r="1.5"/><circle cx="-0.6" cy="8" r="1.5"/><circle cx="4.8" cy="8" r="1.5"/></g>
+          <rect x="-9" y="9.6" width="18" height="3.4" fill="#2e6b52"/>
+          <rect x="-9" y="13" width="18" height="9" fill="#2f3944"/>
+          <rect x="-9" y="13" width="18" height="0.6" fill="#3f4a58"/>
+          <g fill="#c3d0dd"><rect x="-7.6" y="20" width="2.6" height="0.7" rx="0.35"/><rect x="-2.4" y="20" width="2.6" height="0.7" rx="0.35"/><rect x="2.8" y="20" width="2.6" height="0.7" rx="0.35"/></g>
+          <circle cx="-2.8" cy="18.6" r="1.1" fill="#161b22"/>
+          <circle cx="2.8" cy="18.6" r="1.1" fill="#161b22"/>
+          <path d="M-4.8 18.6 L-4.8 17.4 Q-4.8 16.9 -4 16.8 L-2.6 16.8 L-1.6 15.5 Q-1.3 15.2 -0.6 15.2 L1.4 15.2 Q2.1 15.2 2.4 15.6 L3.3 16.8 L4.2 17 Q4.8 17.1 4.8 17.6 L4.8 18.6 Z" fill="#f0e4c8"/>
+          <path d="M-4.8 18.6 L4.8 18.6 L4.8 18 L-4.8 18 Z" fill="#c9b98f"/>
+          <path d="M-1.2 16.7 L-0.3 15.6 Q-0.1 15.5 0.2 15.5 L0.2 16.7 Z" fill="#2f83a8"/>
+          <path d="M0.7 15.5 L1.3 15.5 Q1.8 15.5 2 15.8 L2.6 16.7 L0.7 16.7 Z" fill="#2f83a8"/>
+          <circle cx="4.4" cy="17.7" r="0.5" fill="#ffb148"/>
+          <circle cx="-4.5" cy="17.7" r="0.4" fill="#e8712c"/>
+        </g>
+        <rect x="-9" y="23.4" width="11" height="1.6" rx="0.8" fill="#b9c3cd"/>
+      </g>
+      <ellipse cx="109" cy="88.5" rx="4.4" ry="4" fill="#e8a56d"/>
+      <ellipse cx="106.4" cy="85.8" rx="2" ry="2.4" fill="#e8a56d"/>
+    </g>
+  </g>
+
+  <!-- bench -->
+  <rect x="2" y="102" width="146" height="9" rx="2.5" fill="#1c3450"/>
+  <rect x="3" y="102.5" width="144" height="5" rx="2" fill="#2a4a6b"/>
+  <rect x="30" y="111" width="90" height="15" fill="#16293f"/>
+  <rect x="26" y="126" width="18" height="4" rx="1.5" fill="#101f31"/>
+  <rect x="106" y="126" width="18" height="4" rx="1.5" fill="#101f31"/>
+  <rect x="56" y="114" width="38" height="9" rx="2.5" fill="#101f31"/>
+  <g fill="#2d7fa8">
+    <rect x="61" y="116" width="28" height="1.8" rx="0.9"/>
+    <rect x="61" y="119.5" width="28" height="1.8" rx="0.9"/>
+  </g>
+  <circle class="evd-lamp" cx="38" cy="118.5" r="2.6" fill="#81ecff"/>
+  <circle class="evd-lamp" cx="46" cy="118.5" r="2.6" fill="#3aa8d6"/>
+
+  <!-- the developing tray, seen from its near side: where a claim either
+       becomes a print or does not -->
+  <rect x="4" y="90" width="44" height="12" rx="2" fill="#16293f"/>
+  <rect x="5" y="90.5" width="42" height="3" rx="1.5" fill="#2a4a6b"/>
+  <rect x="7" y="93.5" width="38" height="7.5" rx="1" fill="#12354a"/>
+  <rect x="16" y="94" width="17" height="6.5" rx="0.8" fill="#8fa0b0"/>
+  <g class="evd-bath" fill="#16293f">
+    <rect x="18" y="95.4" width="11" height="1.5" rx="0.75"/>
+    <rect x="18" y="97.8" width="7" height="1.5" rx="0.75"/>
+  </g>
+
+  <!-- the paper box: what has not been exposed yet -->
+  <rect x="114" y="93" width="28" height="9" rx="1.5" fill="#1d222a"/>
+  <rect x="112.5" y="92" width="31" height="3.4" rx="1.5" fill="#333a44"/>
+  <rect x="119" y="97.5" width="18" height="1.8" rx="0.9" fill="#454d58"/>
+
+  <!-- floor glow while the shift is running -->
+  <ellipse class="evd-glow" cx="75" cy="129" rx="72" ry="6" fill="#81ecff"/>
+</svg>

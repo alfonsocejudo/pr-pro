@@ -1,0 +1,357 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 130">
+  <!--
+    PR Scan — the mailroom clerk.
+
+    The metaphor: this stage is intake, not review. Mail arrives from the
+    pigeonhole wall (the repos you picked), the clerk checks each piece
+    against the filters, stamps the ones that pass into the out-tray as
+    review tickets, and drops the rest — drafts, other authors, anything
+    outside the date window — in the wastebasket.
+
+    Drawing style: flat fills, no outlines. Every form is a chunky rounded
+    shape and all shading is a second, darker flat tone — never a gradient
+    or a stroke. The head is deliberately oversized, the eyes are big ovals
+    under heavy hooded lids, and the moustache is the one feature carrying
+    the character. Green is the only bold colour on the machine; it belongs
+    to the eyeshade and nothing else.
+
+    The box is 150x130 with the origin at the top-left and the machine's
+    ground line at y=130.
+
+    While a run is live the dashboard wraps this art in an element carrying
+    data-machine-phase ("pending" | "active" | "done") and data-machine-state
+    (the stage's latest machine:state). React to them with CSS, as the
+    <style> below does. Use CSS animations, not SMIL <animate> — only CSS can
+    key off those attributes, and <animate> is stripped for safety.
+
+    States this art reacts to. The runner owns "active" / "complete" /
+    "failed" / "filtered"; pr-scan.ts sets the rest:
+      scanning-repo  listing one repo's open pull requests
+      repo-skipped   a repo that can't be scanned
+      sorting        drafts / other authors / out-of-window mail discarded
+      ticketing      review tickets minted into the out-tray
+      failed         nothing could be scanned (runner's abort terminal)
+
+    Ids and class names are page-global once inlined — every one here is
+    prefixed "prs-" so machines don't collide. The art is inlined into the
+    page (so the CSS can react), not loaded as an image, but it's still
+    sanitized: scripts and external references won't survive. Delete the
+    file to fall back to the built-in generic box.
+
+    Elements that rotate are drawn around their own local origin so CSS
+    rotation spins them in place without needing transform-box.
+  -->
+  <style>
+    /* Resting look — what the machine shows before a run starts. */
+    .prs-slot,
+    .prs-parcel,
+    .prs-parcel-mark,
+    .prs-reject,
+    .prs-glow      { opacity: 0; }
+    .prs-out-2,
+    .prs-out-3     { opacity: 0; }
+    .prs-lamp      { opacity: 0.3; }
+
+    /* The shift is on: the clerk breathes, mail crosses the desk, the
+       stamp comes down on it. */
+    [data-machine-phase="active"] .prs-glow       { animation: prs-breathe 2.6s ease-in-out infinite; }
+    [data-machine-phase="active"] .prs-clerk      { animation: prs-bob 1.8s ease-in-out infinite; }
+    [data-machine-phase="active"] .prs-parcel     { animation: prs-carry 1.8s ease-in-out infinite; }
+    [data-machine-phase="active"] .prs-parcel-mark{ animation: prs-mark 1.8s linear infinite; }
+    [data-machine-phase="active"] .prs-stamp-arm  { animation: prs-punch 1.8s ease-in-out infinite; }
+    [data-machine-phase="active"] .prs-lamp       { animation: prs-lamp-blink 1.3s ease-in-out infinite; }
+    [data-machine-phase="active"] .prs-eye        { animation: prs-wink 4.1s ease-in-out infinite; }
+    [data-machine-phase="active"] .prs-out-2      { opacity: 0.5; }
+
+    /* Working a repo's mail: the pigeonholes light one column at a time. */
+    [data-machine-state="scanning-repo"] .prs-slot { animation: prs-sweep 2s ease-in-out infinite; }
+    [data-machine-state="scanning-repo"] .prs-head { animation: prs-glance 4s ease-in-out infinite; }
+    /* Scoped to the state, not bare classes: the rule above sets `animation`
+       as a shorthand, which resets animation-delay to 0s, and an unscoped
+       .prs-c1 would lose to it on specificity and stagger nothing. */
+    [data-machine-state="scanning-repo"] .prs-c1 { animation-delay: 0s; }
+    [data-machine-state="scanning-repo"] .prs-c2 { animation-delay: 0.15s; }
+    [data-machine-state="scanning-repo"] .prs-c3 { animation-delay: 0.3s; }
+    [data-machine-state="scanning-repo"] .prs-c4 { animation-delay: 0.45s; }
+    [data-machine-state="scanning-repo"] .prs-c5 { animation-delay: 0.6s; }
+
+    /* Mail that doesn't pass — a repo that can't be scanned, or a piece
+       the filters reject — goes over the desk edge into the basket. */
+    [data-machine-state="repo-skipped"] .prs-reject,
+    [data-machine-state="sorting"]      .prs-reject { animation: prs-discard 1.5s ease-in both; }
+    [data-machine-state="repo-skipped"] .prs-lamp   { fill: #ffb148; opacity: 0.9; }
+
+    /* Tickets minted: the out-tray fills and the stamp mark stays. */
+    [data-machine-state="ticketing"] .prs-out-2,
+    [data-machine-state="ticketing"] .prs-out-3,
+    [data-machine-state="ticketing"] .prs-parcel-mark { opacity: 1; }
+
+    /* Shift over. */
+    [data-machine-phase="done"] .prs-out-2,
+    [data-machine-phase="done"] .prs-out-3 { opacity: 1; }
+    [data-machine-phase="done"] .prs-lamp  { opacity: 0.7; }
+    [data-machine-phase="done"] .prs-slot  { opacity: 0.1; }
+
+    /* No mail to sort at all — the clerk slumps and the lamps go red. */
+    [data-machine-state="failed"] .prs-clerk { transform: translateY(3px); }
+    [data-machine-state="failed"] .prs-lamp  { fill: #e15c4a; opacity: 0.85; }
+    [data-machine-state="failed"] .prs-visor { fill: #6b7a86; }
+    [data-machine-state="failed"] .prs-band  { fill: #55636e; }
+    [data-machine-state="failed"] .prs-out-2,
+    [data-machine-state="failed"] .prs-out-3 { opacity: 0; }
+
+    @keyframes prs-bob {
+      0%, 100% { transform: translateY(0); }
+      50%      { transform: translateY(-1.5px); }
+    }
+    /* Reading along the pigeonholes, left to right and back. */
+    @keyframes prs-glance {
+      0%, 100% { transform: translate(0, 0); }
+      25%      { transform: translate(-2.5px, -0.5px); }
+      70%      { transform: translate(2.5px, -0.5px); }
+    }
+    @keyframes prs-breathe {
+      0%, 100% { opacity: 0.1; }
+      50%      { opacity: 0.22; }
+    }
+    @keyframes prs-lamp-blink {
+      0%, 100% { opacity: 0.3; }
+      50%      { opacity: 1; }
+    }
+    @keyframes prs-wink {
+      0%, 92%, 100% { transform: scaleY(1); }
+      96%           { transform: scaleY(0.12); }
+    }
+    /* In-tray -> under the stamp -> out-tray, then the next piece. */
+    @keyframes prs-carry {
+      0%   { transform: translate(0, 5px);       opacity: 0; }
+      8%   { transform: translate(0, 0);         opacity: 1; }
+      34%  { transform: translate(40px, 14.5px); opacity: 1; }
+      56%  { transform: translate(40px, 14.5px); opacity: 1; }
+      82%  { transform: translate(95px, 2.5px);  opacity: 1; }
+      92%  { transform: translate(95px, 2.5px);  opacity: 0; }
+      100% { transform: translate(0, 5px);       opacity: 0; }
+    }
+    @keyframes prs-punch {
+      0%, 36% { transform: translateY(0); }
+      44%     { transform: translateY(4px); }
+      52%     { transform: translateY(0); }
+      100%    { transform: translateY(0); }
+    }
+    @keyframes prs-mark {
+      0%, 47%   { opacity: 0; }
+      48%, 92%  { opacity: 1; }
+      93%, 100% { opacity: 0; }
+    }
+    @keyframes prs-sweep {
+      0%, 100% { opacity: 0; }
+      12%      { opacity: 0.5; }
+      30%      { opacity: 0; }
+    }
+    @keyframes prs-discard {
+      0%   { transform: translate(0, 0) rotate(0deg);         opacity: 0; }
+      10%  { transform: translate(0, 0) rotate(0deg);         opacity: 1; }
+      100% { transform: translate(-41px, 25px) rotate(42deg); opacity: 0; }
+    }
+  </style>
+
+  <!-- pigeonhole wall: the repos the scan works through -->
+  <rect x="4" y="2" width="142" height="38" rx="5" fill="#1b3350"/>
+  <g fill="#0e1c2e">
+    <rect x="10" y="4" width="24" height="10" rx="2"/>
+    <rect x="36" y="4" width="24" height="10" rx="2"/>
+    <rect x="62" y="4" width="24" height="10" rx="2"/>
+    <rect x="88" y="4" width="24" height="10" rx="2"/>
+    <rect x="114" y="4" width="24" height="10" rx="2"/>
+    <rect x="10" y="16" width="24" height="10" rx="2"/>
+    <rect x="36" y="16" width="24" height="10" rx="2"/>
+    <rect x="62" y="16" width="24" height="10" rx="2"/>
+    <rect x="88" y="16" width="24" height="10" rx="2"/>
+    <rect x="114" y="16" width="24" height="10" rx="2"/>
+    <rect x="10" y="28" width="24" height="10" rx="2"/>
+    <rect x="36" y="28" width="24" height="10" rx="2"/>
+    <rect x="62" y="28" width="24" height="10" rx="2"/>
+    <rect x="88" y="28" width="24" height="10" rx="2"/>
+    <rect x="114" y="28" width="24" height="10" rx="2"/>
+  </g>
+  <!-- shelf lips: the flat highlight that gives the wall depth -->
+  <g fill="#2a4a6b">
+    <rect x="10" y="14" width="24" height="1.6" rx="0.8"/>
+    <rect x="36" y="14" width="24" height="1.6" rx="0.8"/>
+    <rect x="62" y="14" width="24" height="1.6" rx="0.8"/>
+    <rect x="88" y="14" width="24" height="1.6" rx="0.8"/>
+    <rect x="114" y="14" width="24" height="1.6" rx="0.8"/>
+    <rect x="10" y="26" width="24" height="1.6" rx="0.8"/>
+    <rect x="36" y="26" width="24" height="1.6" rx="0.8"/>
+    <rect x="62" y="26" width="24" height="1.6" rx="0.8"/>
+    <rect x="88" y="26" width="24" height="1.6" rx="0.8"/>
+    <rect x="114" y="26" width="24" height="1.6" rx="0.8"/>
+    <rect x="10" y="38" width="24" height="1.6" rx="0.8"/>
+    <rect x="36" y="38" width="24" height="1.6" rx="0.8"/>
+    <rect x="62" y="38" width="24" height="1.6" rx="0.8"/>
+    <rect x="88" y="38" width="24" height="1.6" rx="0.8"/>
+    <rect x="114" y="38" width="24" height="1.6" rx="0.8"/>
+  </g>
+  <!-- mail already filed, peeking out of a few cubbies -->
+  <g fill="#c9b78d">
+    <rect x="13" y="9.5" width="18" height="3.5" rx="1.2"/>
+    <rect x="65" y="9.5" width="18" height="3.5" rx="1.2"/>
+    <rect x="39" y="21.5" width="18" height="3.5" rx="1.2"/>
+    <rect x="117" y="21.5" width="18" height="3.5" rx="1.2"/>
+    <rect x="91" y="33.5" width="18" height="3.5" rx="1.2"/>
+    <rect x="13" y="33.5" width="18" height="3.5" rx="1.2"/>
+  </g>
+  <!-- scan light: sweeps a column at a time while a repo is being listed -->
+  <g fill="#81ecff">
+    <rect class="prs-slot prs-c1" x="10" y="4" width="24" height="10" rx="2"/>
+    <rect class="prs-slot prs-c1" x="10" y="16" width="24" height="10" rx="2"/>
+    <rect class="prs-slot prs-c1" x="10" y="28" width="24" height="10" rx="2"/>
+    <rect class="prs-slot prs-c2" x="36" y="4" width="24" height="10" rx="2"/>
+    <rect class="prs-slot prs-c2" x="36" y="16" width="24" height="10" rx="2"/>
+    <rect class="prs-slot prs-c2" x="36" y="28" width="24" height="10" rx="2"/>
+    <rect class="prs-slot prs-c3" x="62" y="4" width="24" height="10" rx="2"/>
+    <rect class="prs-slot prs-c3" x="62" y="16" width="24" height="10" rx="2"/>
+    <rect class="prs-slot prs-c3" x="62" y="28" width="24" height="10" rx="2"/>
+    <rect class="prs-slot prs-c4" x="88" y="4" width="24" height="10" rx="2"/>
+    <rect class="prs-slot prs-c4" x="88" y="16" width="24" height="10" rx="2"/>
+    <rect class="prs-slot prs-c4" x="88" y="28" width="24" height="10" rx="2"/>
+    <rect class="prs-slot prs-c5" x="114" y="4" width="24" height="10" rx="2"/>
+    <rect class="prs-slot prs-c5" x="114" y="16" width="24" height="10" rx="2"/>
+    <rect class="prs-slot prs-c5" x="114" y="28" width="24" height="10" rx="2"/>
+  </g>
+
+  <!-- the clerk -->
+  <g class="prs-clerk">
+    <!-- body: light sleeves, dark waistcoat over the front -->
+    <path d="M54 103 L56 80 Q57 73 66 73 L84 73 Q93 73 94 80 L96 103 Z" fill="#cfdae6"/>
+    <path d="M62 103 L62 80 Q62 77 66 77 L84 77 Q88 77 88 80 L88 103 Z" fill="#1f5f7d"/>
+    <path d="M65 77 L75 84 L85 77 Z" fill="#e8eef4"/>
+
+    <!-- head, set down into the shoulders so there is no floating neck.
+         The glance rides a wrapper: a CSS transform on the group below would
+         override its own transform attribute. -->
+    <g class="prs-head">
+    <g transform="translate(75 54.24) scale(1.28) translate(-75 -61)">
+      <!-- ears -->
+      <ellipse cx="57.5" cy="63" rx="3" ry="4.2" fill="#cd8852"/>
+      <ellipse cx="92.5" cy="63" rx="3" ry="4.2" fill="#cd8852"/>
+
+      <!-- head -->
+      <rect x="59" y="44" width="32" height="34" rx="14" fill="#e8a56d"/>
+      <!-- hair, and the sideburns the eyeshade doesn't cover -->
+      <path d="M59 60 L59 58 Q59 44 75 44 Q91 44 91 58 L91 60 Q86 55 75 55 Q64 55 59 60 Z" fill="#a08650"/>
+      <path d="M59 58 Q62 57 63 60 L63 67 Q60 66 59 63 Z" fill="#a08650"/>
+      <path d="M91 58 Q88 57 87 60 L87 67 Q90 66 91 63 Z" fill="#a08650"/>
+
+      <!-- eyeshade: the sorting clerk's badge of office, and the only green -->
+      <path class="prs-visor" d="M57 58 Q75 71 93 58 Z" fill="#3fae72"/>
+      <rect class="prs-band" x="57" y="52" width="36" height="7" rx="3.5" fill="#2c8a58"/>
+      <!-- the shadow the brim throws on the face -->
+      <path d="M61 64 Q75 71 89 64 L89 66.5 Q75 73.5 61 66.5 Z" fill="#cd8852" opacity="0.55"/>
+
+      <!-- eyes: big ovals under heavy hooded lids, drawn around their own
+           origin so the blink scales in place -->
+      <g transform="translate(68.5 68.5)">
+        <g class="prs-eye">
+          <ellipse rx="4.3" ry="4.7" fill="#f4f7fa"/>
+          <ellipse cy="1.4" rx="2" ry="2.2" fill="#33232b"/>
+          <path d="M-4.7 -1.4 Q-4.7 -5.6 0 -5.6 Q4.7 -5.6 4.7 -1.4 Q0 -3.4 -4.7 -1.4 Z" fill="#33232b"/>
+        </g>
+      </g>
+      <g transform="translate(81.5 68.5)">
+        <g class="prs-eye">
+          <ellipse rx="4.3" ry="4.7" fill="#f4f7fa"/>
+          <ellipse cy="1.4" rx="2" ry="2.2" fill="#33232b"/>
+          <path d="M-4.7 -1.4 Q-4.7 -5.6 0 -5.6 Q4.7 -5.6 4.7 -1.4 Q0 -3.4 -4.7 -1.4 Z" fill="#33232b"/>
+        </g>
+      </g>
+
+      <!-- nose -->
+      <ellipse cx="75" cy="71.5" rx="4.6" ry="3.2" fill="#cd8852"/>
+      <!-- the moustache carries the character -->
+      <path d="M65 75 Q65 72 70 72.5 Q75 73.3 80 72.5 Q85 72 85 75 Q85 78.8 80.5 79.2 Q76.8 79.5 75 77.2 Q73.2 79.5 69.5 79.2 Q65 78.8 65 75 Z" fill="#a08650"/>
+    </g>
+    </g>
+  </g>
+
+  <!-- desk -->
+  <rect x="2" y="102" width="146" height="9" rx="2.5" fill="#1c3450"/>
+  <rect x="3" y="102.5" width="144" height="5" rx="2" fill="#2a4a6b"/>
+  <rect x="30" y="111" width="90" height="15" fill="#16293f"/>
+  <rect x="26" y="126" width="18" height="4" rx="1.5" fill="#101f31"/>
+  <rect x="106" y="126" width="18" height="4" rx="1.5" fill="#101f31"/>
+  <!-- nameplate and status lamps on the desk front -->
+  <rect x="56" y="114" width="38" height="9" rx="2.5" fill="#101f31"/>
+  <g fill="#2d7fa8">
+    <rect x="60" y="116.5" width="11" height="1.8" rx="0.9"/>
+    <rect x="60" y="119.5" width="19" height="1.8" rx="0.9"/>
+    <rect x="83" y="116.5" width="7" height="1.8" rx="0.9"/>
+  </g>
+  <circle class="prs-lamp" cx="38" cy="118.5" r="2.6" fill="#81ecff"/>
+  <circle class="prs-lamp" cx="46" cy="118.5" r="2.6" fill="#3aa8d6"/>
+
+  <!-- the free hand, resting by the out-tray -->
+  <path d="M90 90 L102 96" stroke="#cfdae6" stroke-width="8" stroke-linecap="round" fill="none"/>
+  <ellipse cx="104" cy="96.5" rx="4.4" ry="4" fill="#e8a56d"/>
+  <ellipse cx="100.5" cy="99.5" rx="2" ry="2.4" fill="#e8a56d"/>
+
+  <!-- in-tray: mail waiting to be sorted -->
+  <rect x="4" y="97" width="42" height="5" rx="2" fill="#16293f"/>
+  <rect x="4" y="97" width="42" height="1.8" rx="0.9" fill="#24425f"/>
+  <rect x="7" y="92" width="36" height="5" rx="1.5" fill="#d4c39d"/>
+  <rect x="8" y="87.5" width="34" height="5" rx="1.5" fill="#f0e4c8"/>
+
+  <!-- out-tray: one stamped ticket per pull request that passed -->
+  <rect x="98" y="97" width="44" height="5" rx="2" fill="#16293f"/>
+  <rect x="98" y="97" width="44" height="1.8" rx="0.9" fill="#24425f"/>
+  <rect class="prs-out-1" x="101" y="92" width="38" height="5" rx="1.5" fill="#f0e4c8"/>
+  <rect class="prs-out-2" x="102" y="87.5" width="36" height="5" rx="1.5" fill="#f0e4c8"/>
+  <rect class="prs-out-3" x="103" y="83" width="34" height="5" rx="1.5" fill="#f0e4c8"/>
+  <g fill="#81ecff">
+    <rect class="prs-out-1" x="132" y="93.5" width="5" height="2.2" rx="1"/>
+    <rect class="prs-out-2" x="131" y="89" width="5" height="2.2" rx="1"/>
+    <rect class="prs-out-3" x="130" y="84.5" width="5" height="2.2" rx="1"/>
+  </g>
+
+  <!-- discarded mail, drawn around its own origin so it tumbles in place -->
+  <g transform="translate(57 97)">
+    <g class="prs-reject">
+      <rect x="-8" y="-5" width="16" height="10" rx="2" fill="#d4c39d"/>
+      <path d="M-8 -4 L0 1.5 L8 -4 L8 -3 L0 2.5 L-8 -3 Z" fill="#b3a179"/>
+      <rect x="2.5" y="-3.5" width="4.5" height="3" rx="1" fill="#ffb148"/>
+    </g>
+  </g>
+
+
+  <!-- the wastebasket: wide and short, with daylight under the desk above
+       it so it never reads as a leg -->
+  <rect x="4" y="115" width="24" height="3.5" rx="1.75" fill="#2a4a6b"/>
+  <path d="M6 118.5 L26 118.5 L24 130 L8 130 Z" fill="#1c3450"/>
+  <g fill="#24425f">
+    <rect x="10.6" y="120" width="1.6" height="10"/>
+    <rect x="15.2" y="120" width="1.6" height="10"/>
+    <rect x="19.8" y="120" width="1.6" height="10"/>
+  </g>
+
+  <!-- the piece being handled: in-tray -> stamp -> out-tray -->
+  <g transform="translate(9 77.5)">
+    <g class="prs-parcel">
+      <rect x="0" y="0" width="16" height="10" rx="2" fill="#f0e4c8"/>
+      <path d="M0 1 L8 6.5 L16 1 L16 2 L8 7.5 L0 2 Z" fill="#d4c39d"/>
+      <rect class="prs-parcel-mark" x="10.5" y="1.5" width="4.5" height="3" rx="1" fill="#81ecff"/>
+    </g>
+  </g>
+
+  <!-- stamp arm: sleeve, mitten and date stamp move as one -->
+  <g class="prs-stamp-arm">
+    <path d="M61 92 L53 82" stroke="#cfdae6" stroke-width="8" stroke-linecap="round" fill="none"/>
+    <rect x="47.5" y="73" width="7" height="11" rx="3.5" fill="#33232b"/>
+    <ellipse cx="51" cy="80" rx="4.4" ry="4" fill="#e8a56d"/>
+    <ellipse cx="54.5" cy="77" rx="2" ry="2.4" fill="#e8a56d"/>
+    <rect x="42" y="82" width="18" height="7" rx="2" fill="#1f5f7d"/>
+    <rect x="42" y="82" width="18" height="2.4" rx="1.2" fill="#2d7fa8"/>
+  </g>
+
+  <!-- floor glow while the shift is running -->
+  <ellipse class="prs-glow" cx="75" cy="129" rx="72" ry="6" fill="#81ecff"/>
+</svg>

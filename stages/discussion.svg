@@ -1,0 +1,335 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 130">
+  <!--
+    Discussion — the secretary taking the messages.
+
+    The metaphor: this stage joins a conversation already in progress. It
+    makes one call out to the pull request, takes down every comment
+    already on the thread, and marks which ones sit in review threads
+    nobody has resolved — the open items. The reviewers downstream read
+    her notes so they don't repeat what someone already said.
+
+    The message board behind her is the thread: one pinned note per
+    comment, amber pins for the unresolved ones. The pad in front of her
+    is the block she writes for the reviewers.
+
+    Drawing style matches stages/pr-scan.svg — flat fills, no outlines,
+    shading by a second darker tone, oversized head, heavy hooded lids.
+    The figure uses the same scale transform as the clerk so the two read
+    as one cast. Her cardigan is the one bold colour here, the way the
+    clerk's eyeshade is his.
+
+    The box is 150x130 with the origin at the top-left and the machine's
+    ground line at y=130.
+
+    While a run is live the dashboard wraps this art in an element carrying
+    data-machine-phase ("pending" | "active" | "done") and data-machine-state
+    (the stage's latest machine:state). React to them with CSS, as the
+    <style> below does. Use CSS animations, not SMIL <animate> — only CSS can
+    key off those attributes, and <animate> is stripped for safety.
+
+    States this art reacts to. The runner owns "active" / "complete" /
+    "failed" / "filtered"; discussion.ts sets the rest:
+      reading-thread  the provider read is in flight
+      transcribing    comments read — the block is being written
+      empty-thread    nobody has commented yet; this is the first review
+      unreachable     the discussion could not be read; the review runs blind
+
+    Ids and class names are page-global once inlined — every one here is
+    prefixed "dis-" so machines don't collide. Elements that rotate are
+    drawn around their own local origin so CSS rotation spins them in
+    place without needing transform-box.
+  -->
+  <style>
+    /* Resting look — what the machine shows before a run starts. */
+    .dis-note,
+    .dis-line,
+    .dis-glow  { opacity: 0; }
+    .dis-lamp  { opacity: 0.3; }
+
+    /* On the call: she breathes, the pen moves, the cord swings. */
+    [data-machine-phase="active"] .dis-glow  { animation: dis-breathe 2.6s ease-in-out infinite; }
+    [data-machine-phase="active"] .dis-sec   { animation: dis-bob 1.8s ease-in-out infinite; }
+    [data-machine-phase="active"] .dis-pen   { animation: dis-scribble 1.8s ease-in-out infinite; }
+    [data-machine-phase="active"] .dis-cord  { animation: dis-sway 2.2s ease-in-out infinite; }
+    [data-machine-phase="active"] .dis-lamp  { animation: dis-lamp-blink 1.3s ease-in-out infinite; }
+    [data-machine-phase="active"] .dis-eye   { animation: dis-wink 4.1s ease-in-out infinite; }
+    [data-machine-phase="active"] .dis-flag  { animation: dis-lamp-blink 1.6s ease-in-out infinite; }
+
+    /* Taking down the thread: she reads along the board, note by note. */
+    /* Scoped to the state, not bare classes: the rule above sets `animation`
+       as a shorthand, which resets animation-delay to 0s, and an unscoped
+       .dis-n1 would lose to it on specificity and stagger nothing. */
+    [data-machine-state="reading-thread"] .dis-note { animation: dis-catch 1.8s ease-in-out infinite; }
+    [data-machine-state="reading-thread"] .dis-head { animation: dis-glance 3.6s ease-in-out infinite; }
+    [data-machine-state="reading-thread"] .dis-n1 { animation-delay: 0s; }
+    [data-machine-state="reading-thread"] .dis-n2 { animation-delay: 0.14s; }
+    [data-machine-state="reading-thread"] .dis-n3 { animation-delay: 0.28s; }
+    [data-machine-state="reading-thread"] .dis-n4 { animation-delay: 0.42s; }
+    [data-machine-state="reading-thread"] .dis-n5 { animation-delay: 0.56s; }
+
+    /* Writing the block the reviewers read — a line at a time. */
+    [data-machine-state="transcribing"] .dis-l1 { animation: dis-write 0.3s ease-out 0.1s forwards; }
+    [data-machine-state="transcribing"] .dis-l2 { animation: dis-write 0.3s ease-out 0.6s forwards; }
+    [data-machine-state="transcribing"] .dis-l3 { animation: dis-write 0.3s ease-out 1.1s forwards; }
+    [data-machine-state="transcribing"] .dis-pen { animation: dis-scribble 0.7s ease-in-out infinite; }
+
+    /* Nobody has commented yet — the board is bare and the pad stays blank. */
+    [data-machine-state="empty-thread"] .dis-pinned { opacity: 0.12; }
+    [data-machine-state="empty-thread"] .dis-pen    { animation: none; }
+
+    /* The thread could not be read: the line is dead and she has nothing
+       to take down. */
+    [data-machine-state="unreachable"] .dis-pinned { opacity: 0.12; }
+    [data-machine-state="unreachable"] .dis-lamp   { fill: #e15c4a; opacity: 0.9; animation: none; }
+    [data-machine-state="unreachable"] .dis-pen    { animation: none; }
+    [data-machine-state="unreachable"] .dis-sec    { transform: translateY(2px); }
+
+    /* Notes taken. */
+    [data-machine-phase="done"] .dis-line { opacity: 1; }
+    [data-machine-phase="done"] .dis-lamp { opacity: 0.7; }
+
+    @keyframes dis-bob {
+      0%, 100% { transform: translateY(0); }
+      50%      { transform: translateY(-1px); }
+    }
+    @keyframes dis-breathe {
+      0%, 100% { opacity: 0.1; }
+      50%      { opacity: 0.22; }
+    }
+    @keyframes dis-lamp-blink {
+      0%, 100% { opacity: 0.3; }
+      50%      { opacity: 1; }
+    }
+    @keyframes dis-wink {
+      0%, 92%, 100% { transform: scaleY(1); }
+      96%           { transform: scaleY(0.12); }
+    }
+    /* The pen working down the page. */
+    @keyframes dis-scribble {
+      0%, 100% { transform: translate(0, 0) rotate(0deg); }
+      25%      { transform: translate(-1.2px, 0.4px) rotate(-2deg); }
+      60%      { transform: translate(1.4px, -0.3px) rotate(2deg); }
+    }
+    @keyframes dis-sway {
+      0%, 100% { transform: translateX(0); }
+      50%      { transform: translateX(0.8px); }
+    }
+    /* Reading along the board. */
+    @keyframes dis-glance {
+      0%, 100% { transform: translate(0, 0); }
+      25%      { transform: translate(-2px, -0.5px); }
+      70%      { transform: translate(2px, -0.5px); }
+    }
+    @keyframes dis-catch {
+      0%, 100% { opacity: 0; }
+      14%      { opacity: 0.55; }
+      34%      { opacity: 0; }
+    }
+    @keyframes dis-write {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+  </style>
+
+  <!-- message board: one pinned note per comment already on the thread -->
+  <rect x="4" y="2" width="142" height="42" rx="5" fill="#1b3350"/>
+  <rect x="8" y="6" width="134" height="34" rx="3" fill="#142840"/>
+  <g class="dis-pinned">
+    <g transform="translate(22 15) rotate(-5)">
+      <rect x="-10" y="-6.5" width="20" height="13" rx="1.5" fill="#f0e4c8"/>
+      <rect x="-6.5" y="-2" width="13" height="1.4" rx="0.7" fill="#d4c39d"/>
+      <rect x="-6.5" y="1.4" width="9" height="1.4" rx="0.7" fill="#d4c39d"/>
+      <circle cy="-4.5" r="1.7" fill="#3aa8d6"/>
+      <rect class="dis-note dis-n1" x="-10" y="-6.5" width="20" height="13" rx="1.5" fill="#81ecff"/>
+    </g>
+    <g transform="translate(48 15) rotate(4)">
+      <rect x="-10" y="-6.5" width="20" height="13" rx="1.5" fill="#f0e4c8"/>
+      <rect x="-6.5" y="-2" width="13" height="1.4" rx="0.7" fill="#d4c39d"/>
+      <rect x="-6.5" y="1.4" width="11" height="1.4" rx="0.7" fill="#d4c39d"/>
+      <circle class="dis-flag" cy="-4.5" r="1.7" fill="#ffb148"/>
+      <rect class="dis-note dis-n2" x="-10" y="-6.5" width="20" height="13" rx="1.5" fill="#81ecff"/>
+    </g>
+    <g transform="translate(74 15) rotate(-3)">
+      <rect x="-10" y="-6.5" width="20" height="13" rx="1.5" fill="#f0e4c8"/>
+      <rect x="-6.5" y="-2" width="10" height="1.4" rx="0.7" fill="#d4c39d"/>
+      <rect x="-6.5" y="1.4" width="13" height="1.4" rx="0.7" fill="#d4c39d"/>
+      <circle cy="-4.5" r="1.7" fill="#3aa8d6"/>
+      <rect class="dis-note dis-n3" x="-10" y="-6.5" width="20" height="13" rx="1.5" fill="#81ecff"/>
+    </g>
+    <g transform="translate(100 15) rotate(6)">
+      <rect x="-10" y="-6.5" width="20" height="13" rx="1.5" fill="#f0e4c8"/>
+      <rect x="-6.5" y="-2" width="13" height="1.4" rx="0.7" fill="#d4c39d"/>
+      <rect x="-6.5" y="1.4" width="8" height="1.4" rx="0.7" fill="#d4c39d"/>
+      <circle cy="-4.5" r="1.7" fill="#3aa8d6"/>
+      <rect class="dis-note dis-n4" x="-10" y="-6.5" width="20" height="13" rx="1.5" fill="#81ecff"/>
+    </g>
+    <g transform="translate(126 15) rotate(-4)">
+      <rect x="-10" y="-6.5" width="20" height="13" rx="1.5" fill="#f0e4c8"/>
+      <rect x="-6.5" y="-2" width="11" height="1.4" rx="0.7" fill="#d4c39d"/>
+      <rect x="-6.5" y="1.4" width="13" height="1.4" rx="0.7" fill="#d4c39d"/>
+      <circle cy="-4.5" r="1.7" fill="#3aa8d6"/>
+      <rect class="dis-note dis-n5" x="-10" y="-6.5" width="20" height="13" rx="1.5" fill="#81ecff"/>
+    </g>
+    <g transform="translate(22 31) rotate(3)">
+      <rect x="-10" y="-6.5" width="20" height="13" rx="1.5" fill="#f0e4c8"/>
+      <rect x="-6.5" y="-2" width="12" height="1.4" rx="0.7" fill="#d4c39d"/>
+      <rect x="-6.5" y="1.4" width="9" height="1.4" rx="0.7" fill="#d4c39d"/>
+      <circle cy="-4.5" r="1.7" fill="#3aa8d6"/>
+      <rect class="dis-note dis-n1" x="-10" y="-6.5" width="20" height="13" rx="1.5" fill="#81ecff"/>
+    </g>
+    <g transform="translate(48 31) rotate(-6)">
+      <rect x="-10" y="-6.5" width="20" height="13" rx="1.5" fill="#f0e4c8"/>
+      <rect x="-6.5" y="-2" width="9" height="1.4" rx="0.7" fill="#d4c39d"/>
+      <rect x="-6.5" y="1.4" width="13" height="1.4" rx="0.7" fill="#d4c39d"/>
+      <circle cy="-4.5" r="1.7" fill="#3aa8d6"/>
+      <rect class="dis-note dis-n2" x="-10" y="-6.5" width="20" height="13" rx="1.5" fill="#81ecff"/>
+    </g>
+    <g transform="translate(100 31) rotate(-2)">
+      <rect x="-10" y="-6.5" width="20" height="13" rx="1.5" fill="#f0e4c8"/>
+      <rect x="-6.5" y="-2" width="13" height="1.4" rx="0.7" fill="#d4c39d"/>
+      <rect x="-6.5" y="1.4" width="10" height="1.4" rx="0.7" fill="#d4c39d"/>
+      <circle class="dis-flag" cy="-4.5" r="1.7" fill="#ffb148"/>
+      <rect class="dis-note dis-n4" x="-10" y="-6.5" width="20" height="13" rx="1.5" fill="#81ecff"/>
+    </g>
+    <g transform="translate(126 31) rotate(4)">
+      <rect x="-10" y="-6.5" width="20" height="13" rx="1.5" fill="#f0e4c8"/>
+      <rect x="-6.5" y="-2" width="10" height="1.4" rx="0.7" fill="#d4c39d"/>
+      <rect x="-6.5" y="1.4" width="12" height="1.4" rx="0.7" fill="#d4c39d"/>
+      <circle cy="-4.5" r="1.7" fill="#3aa8d6"/>
+      <rect class="dis-note dis-n5" x="-10" y="-6.5" width="20" height="13" rx="1.5" fill="#81ecff"/>
+    </g>
+  </g>
+
+  <!-- the secretary -->
+  <g class="dis-sec">
+    <!-- blouse, then the cardigan panels leaving a V of blouse between -->
+    <path d="M54 103 L56 80 Q57 73 66 73 L84 73 Q93 73 94 80 L96 103 Z" fill="#dcd6e4"/>
+    <path d="M54 103 L56 80 Q57 73 66 73 L72 73 L68 103 Z" fill="#7a4560"/>
+    <path d="M96 103 L94 80 Q93 73 84 73 L78 73 L82 103 Z" fill="#7a4560"/>
+    <path d="M72 73 L75 82 L78 73 Z" fill="#eeeaf2"/>
+    <path d="M69 78 Q75 84 81 78 L81 79.3 Q75 85.5 69 79.3 Z" fill="#ffb148" opacity="0.85"/>
+
+    <!-- head, set down into the shoulders; the glance rides a wrapper because
+         a CSS transform on the group below would override its own attribute -->
+    <g class="dis-head">
+    <g transform="translate(75 54.24) scale(1.28) translate(-75 -61)">
+      <!-- hair up in a bun: the bun sits behind the head so it breaks the
+           silhouette above the crown, in the gap the board's middle row
+           leaves open. The hairline comes down close to the brow — a band
+           across the forehead reads as a cap brim at this size. Ears are
+           drawn over the hair, the way a pulled-back style sits. -->
+      <ellipse cx="75" cy="41" rx="9" ry="6" fill="#4a2a2e"/>
+      <ellipse cx="72.3" cy="39.4" rx="4" ry="2.6" fill="#5e373c"/>
+      <rect x="59" y="44" width="32" height="34" rx="14" fill="#cf8b4e"/>
+      <path d="M58.5 62 Q58 43.5 75 43.5 Q92 43.5 91.5 62 Q89 57.5 84 56 Q75 54.4 66 56 Q61 57.5 58.5 62 Z" fill="#4a2a2e"/>
+      <ellipse cx="92.5" cy="63" rx="3" ry="4.2" fill="#a96c37"/>
+      <circle cx="92.8" cy="68.5" r="1.7" fill="#ffb148"/>
+      <ellipse cx="57.5" cy="63" rx="3" ry="4.2" fill="#a96c37"/>
+      <path d="M59.6 58 Q57 64.5 58.9 71.5 L61.6 70.4 Q60 64 62 59 Z" fill="#4a2a2e"/>
+      <path d="M90.4 58 Q93 64.5 91.1 71.5 L88.4 70.4 Q90 64 88 59 Z" fill="#4a2a2e"/>
+
+      <!-- eyes: big ovals under heavy hooded lids, each drawn around its own
+           origin so the blink scales in place -->
+      <g transform="translate(68.5 68.5)">
+        <g class="dis-eye">
+          <ellipse rx="4.3" ry="4.7" fill="#f4f7fa"/>
+          <ellipse cy="1.4" rx="2" ry="2.2" fill="#33232b"/>
+          <path d="M-4.7 -1.4 Q-4.7 -5.6 0 -5.6 Q4.7 -5.6 4.7 -1.4 Q0 -3.4 -4.7 -1.4 Z" fill="#33232b"/>
+          <path d="M-6.4 -3.6 L-4.2 -1.7 L-4.9 -0.5 Z" fill="#33232b"/>
+        </g>
+      </g>
+      <g transform="translate(81.5 68.5)">
+        <g class="dis-eye">
+          <ellipse rx="4.3" ry="4.7" fill="#f4f7fa"/>
+          <ellipse cy="1.4" rx="2" ry="2.2" fill="#33232b"/>
+          <path d="M-4.7 -1.4 Q-4.7 -5.6 0 -5.6 Q4.7 -5.6 4.7 -1.4 Q0 -3.4 -4.7 -1.4 Z" fill="#33232b"/>
+          <path d="M6.4 -3.6 L4.2 -1.7 L4.9 -0.5 Z" fill="#33232b"/>
+        </g>
+      </g>
+
+      <ellipse cx="75" cy="71" rx="3.4" ry="2.4" fill="#a96c37"/>
+      <path d="M71.6 74.6 Q75 77.4 78.4 74.6 Q75 76.2 71.6 74.6 Z" fill="#a8494f"/>
+    </g>
+    </g>
+  </g>
+
+  <!-- desk -->
+  <rect x="2" y="102" width="146" height="9" rx="2.5" fill="#1c3450"/>
+  <rect x="3" y="102.5" width="144" height="5" rx="2" fill="#2a4a6b"/>
+  <rect x="30" y="111" width="90" height="15" fill="#16293f"/>
+  <rect x="26" y="126" width="18" height="4" rx="1.5" fill="#101f31"/>
+  <rect x="106" y="126" width="18" height="4" rx="1.5" fill="#101f31"/>
+  <rect x="56" y="114" width="38" height="9" rx="2.5" fill="#101f31"/>
+  <g fill="#2d7fa8">
+    <rect x="60" y="116.5" width="11" height="1.8" rx="0.9"/>
+    <rect x="60" y="119.5" width="19" height="1.8" rx="0.9"/>
+    <rect x="83" y="116.5" width="7" height="1.8" rx="0.9"/>
+  </g>
+  <circle class="dis-lamp" cx="38" cy="118.5" r="2.6" fill="#81ecff"/>
+  <circle class="dis-lamp" cx="46" cy="118.5" r="2.6" fill="#3aa8d6"/>
+
+  <!-- the telephone, its cradle empty while she is on the call -->
+  <rect x="18" y="92" width="5" height="2.6" rx="1.2" fill="#3a424e"/>
+  <rect x="39" y="92" width="5" height="2.6" rx="1.2" fill="#3a424e"/>
+  <rect x="14" y="94" width="34" height="8" rx="2.5" fill="#262b33"/>
+  <rect x="14" y="94" width="34" height="2.4" rx="1.2" fill="#3a424e"/>
+  <g fill="#7a818a">
+    <circle cx="24" cy="99" r="1"/>
+    <circle cx="28" cy="99" r="1"/>
+    <circle cx="32" cy="99" r="1"/>
+  </g>
+  <circle class="dis-lamp" cx="43" cy="99" r="1.8" fill="#81ecff"/>
+
+  <!-- the pad: the block the reviewers downstream read -->
+  <rect x="96" y="90" width="40" height="12" rx="1.5" fill="#f0e4c8"/>
+  <g fill="#8f8570">
+    <circle cx="101" cy="91" r="1"/>
+    <circle cx="109" cy="91" r="1"/>
+    <circle cx="117" cy="91" r="1"/>
+    <circle cx="125" cy="91" r="1"/>
+    <circle cx="132" cy="91" r="1"/>
+  </g>
+  <g fill="#2d7fa8">
+    <rect class="dis-line dis-l1" x="112" y="94" width="22" height="1.5" rx="0.75"/>
+    <rect class="dis-line dis-l2" x="112" y="97" width="16" height="1.5" rx="0.75"/>
+    <rect class="dis-line dis-l3" x="112" y="100" width="19" height="1.5" rx="0.75"/>
+  </g>
+
+  <!-- the cord, coiling down to the phone -->
+  <path class="dis-cord" d="M47 78 C 53 81, 41 83, 47 86 C 53 89, 41 91, 47 94 C 51 96, 44 96, 40 97"
+        fill="none" stroke="#262b33" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- the handset, held to her ear -->
+  <path d="M62 92 L46 76" stroke="#7a4560" stroke-width="8" stroke-linecap="round" fill="none"/>
+  <g transform="translate(50 64) rotate(-13)">
+    <rect x="-4.5" y="-14" width="9" height="28" rx="4.5" fill="#262b33"/>
+    <ellipse cy="-13" rx="6" ry="4.5" fill="#2f3641"/>
+    <ellipse cy="13" rx="6" ry="4.5" fill="#2f3641"/>
+  </g>
+  <g transform="translate(50 64) rotate(-13)">
+    <ellipse cx="-6.5" cy="4.5" rx="4.1" ry="4.8" fill="#cf8b4e"/>
+    <g fill="#cf8b4e">
+      <rect x="-6.5" y="0.3" width="5.3" height="2.6" rx="1.3"/>
+      <rect x="-6.5" y="3.5" width="5.3" height="2.6" rx="1.3"/>
+      <rect x="-6.5" y="6.7" width="5.3" height="2.6" rx="1.3"/>
+    </g>
+  </g>
+
+  <!-- the writing hand -->
+  <path d="M91 93 L102 90" stroke="#7a4560" stroke-width="8" stroke-linecap="round" fill="none"/>
+  <g class="dis-pen">
+    <!-- pen and hand share one frame, tilted the way a pen is actually held:
+         the nib lands on the pad at (103, 97) and the barrel runs up behind
+         the grip. The knuckles sit square across the barrel, the same grip
+         the handset uses. -->
+    <g transform="translate(107 86) rotate(20)">
+      <rect x="-1.7" y="-12" width="3.4" height="20" rx="1.7" fill="#262b33"/>
+      <rect x="-1.7" y="-12" width="3.4" height="3.4" rx="1.7" fill="#3a424e"/>
+      <path d="M-1.7 7 L1.7 7 L0 11.6 Z" fill="#2d7fa8"/>
+      <ellipse cx="-1" cy="1.8" rx="4.5" ry="4.3" fill="#cf8b4e"/>
+    </g>
+  </g>
+
+  <!-- floor glow while the call is live -->
+  <ellipse class="dis-glow" cx="75" cy="129" rx="72" ry="6" fill="#81ecff"/>
+</svg>
