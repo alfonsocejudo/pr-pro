@@ -60,7 +60,10 @@ that's the point of the gate.
    a local path and that account bound as its "Publish to".
 3. **PR Scan's Settings** (the gear above the machine) — pick the repos to
    scan. Optionally narrow by `authors` (comma-separated usernames) or by
-   date (`lookback` days, or fixed `since` / `until`).
+   date (`lookback` days, or fixed `since` / `until`). A reviewed PR comes
+   back on its own only when new commits land; tick `includeReviewed` to
+   re-queue PRs already reviewed at their current commit — for a second
+   look after the author replied in the discussion, for instance.
 4. **Per-stage agents** — Correctness, Quality, and Evidence each drive a
    CLI agent. Pick one per stage on the dashboard.
 

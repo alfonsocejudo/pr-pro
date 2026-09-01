@@ -8,7 +8,7 @@
     {
       "id": "pr-scan",
       "label": "PR Scan",
-      "description": "Finds the open pull requests in the repositories you pick and queues up one review for each. Drafts are skipped. The settings below narrow it further — to certain authors, or to pull requests updated in a date range.",
+      "description": "Finds the open pull requests in the repositories you pick and queues up one review for each. Drafts are skipped. The settings below narrow it further — to certain authors, or to pull requests updated in a date range — or widen it to pull requests already reviewed at their current commit.",
       "module": "./stages/pr-scan.ts",
       "fixtureModule": "./stages/pr-scan.fixture.ts",
       "scope": "pre-run",
@@ -55,6 +55,13 @@
           "type": "date",
           "default": "",
           "description": "Only create review tickets for PRs updated on or before this date. Leave empty for no end date.",
+          "section": "settings"
+        },
+        {
+          "name": "includeReviewed",
+          "type": "boolean",
+          "default": false,
+          "description": "Also queue pull requests this workflow has already reviewed at their current commit. Normally a reviewed pull request comes back only after new commits land; turn this on to give one a second look without a push — after the author replied in the discussion, say. The other settings above still apply.",
           "section": "settings"
         }
       ]

@@ -100,6 +100,11 @@ export interface Ticket {
    *  an already-processed ticket while a real change does. Leave unset
    *  when the only version signal is a modification time. */
   revision?: string;
+  /** The operator asked for this ticket to run again even though the app
+   *  already processed its current version. Set it when a scan setting
+   *  offers a re-run option; dedup passes a flagged ticket through and
+   *  records the same marker on completion. Leave unset for normal dedup. */
+  reprocess?: boolean;
   /** Producing source's name — a scanner sets its own marker here. */
   source: string;
   /** Canonical upstream URL (MR/issue page), when one exists. */

@@ -13,6 +13,12 @@
 // which is what keeps the review this workflow posts from re-queuing the
 // PR it was posted on.
 //
+// The Include Reviewed setting is the operator's way around that: with it
+// on, every ticket carries `reprocess`, which the app's dedup honors as
+// "queue this even at a revision already processed". Dedup runs in the app
+// after this stage returns, so the ticket is the only channel the setting
+// has to reach it.
+//
 // The Authors setting narrows the scan to certain PR authors:
 // comma-separated usernames, matched case-insensitively (a leading "@"
 // is tolerated). Empty means every author.
@@ -82,6 +88,11 @@ export default function createStage() {
       const cutoffMs = lookbackDays > 0 ? Date.now() - lookbackDays * 86_400_000 : null;
       if (cutoffMs !== null) {
         ctx.log(`Reviewing PRs updated in the last ${lookbackDays} day(s).`, "info");
+      }
+
+      const includeReviewed: boolean = config.settings.includeReviewed === true;
+      if (includeReviewed) {
+        ctx.log(`Including PRs already reviewed at their current commit.`, "info");
       }
 
       // Fixed date bounds ride the same last-update time as Lookback. A
@@ -196,6 +207,7 @@ export default function createStage() {
             // and the PR comes back for another look; a comment or a label
             // edit doesn't, so a reviewed PR stays reviewed.
             revision: pr.headSha,
+            ...(includeReviewed ? { reprocess: true } : {}),
             source: "pr-scan",
             sourceUrl: pr.webUrl,
             // Binds the work to the repo the PR belongs to — no matching
