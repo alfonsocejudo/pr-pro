@@ -58,12 +58,14 @@ that's the point of the gate.
    that will read the PRs and post the comments.
 2. **General → Local repositories** — add each repo you want reviewed, with
    a local path and that account bound as its "Publish to".
-3. **PR Scan's Settings** (the gear above the machine) — pick the repos to
-   scan. Optionally narrow by `authors` (comma-separated usernames) or by
-   date (`lookback` days, or fixed `since` / `until`). A reviewed PR comes
-   back on its own only when new commits land; tick `includeReviewed` to
-   re-queue PRs already reviewed at their current commit — for a second
-   look after the author replied in the discussion, for instance.
+3. **PR Scan's Settings** (the gear above the machine) — pick the
+   **Repositories to scan**. Optionally narrow to **Only these authors**
+   (comma-separated usernames) or by date (**Updated in the last N
+   days**, or fixed **Updated on or after** / **Updated on or before**).
+   A reviewed PR comes back on its own only when new commits land; tick
+   **Include already-reviewed pull requests** to re-queue PRs already
+   reviewed at their current commit — for a second look after the author
+   replied in the discussion, for instance.
 4. **Per-stage agents** — Correctness, Quality, and Evidence each drive a
    CLI agent. Pick one per stage on the dashboard.
 

@@ -18,6 +18,7 @@
       "tunables": [
         {
           "name": "repos",
+          "label": "Repositories to scan",
           "type": "repos",
           "default": [],
           "required": true,
@@ -26,6 +27,7 @@
         },
         {
           "name": "authors",
+          "label": "Only these authors",
           "type": "string",
           "default": "",
           "description": "Only create review tickets for PRs by these authors — comma-separated usernames. Leave empty to review every author.",
@@ -33,6 +35,7 @@
         },
         {
           "name": "lookback",
+          "label": "Updated in the last N days",
           "type": "number",
           "range": {
             "min": 0,
@@ -45,6 +48,7 @@
         },
         {
           "name": "since",
+          "label": "Updated on or after",
           "type": "date",
           "default": "",
           "description": "Only create review tickets for PRs updated on or after this date. Leave empty for no start date.",
@@ -52,6 +56,7 @@
         },
         {
           "name": "until",
+          "label": "Updated on or before",
           "type": "date",
           "default": "",
           "description": "Only create review tickets for PRs updated on or before this date. Leave empty for no end date.",
@@ -59,6 +64,7 @@
         },
         {
           "name": "includeReviewed",
+          "label": "Include already-reviewed pull requests",
           "type": "boolean",
           "default": false,
           "description": "Also queue pull requests this workflow has already reviewed at their current commit. Normally a reviewed pull request comes back only after new commits land; turn this on to give one a second look without a push — after the author replied in the discussion, say. The other settings above still apply.",
