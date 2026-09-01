@@ -142,5 +142,6 @@
     "qualityFindings",
     "verifiedReview",
     "reviewScreenshots"
-  ]
+  ],
+  "repo": "https://github.com/alfonsocejudo/pr-pro"
 }
