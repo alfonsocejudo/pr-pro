@@ -92,7 +92,11 @@ reads the reports before it:
 
 Each review stage opens its report with a verdict on its own line, which
 its machine artwork reacts to. `stages/review-verdict.ts` is the shared
-parser.
+parser. A report may also open with **BLOCKED** when the pass could not
+run at all — the branches would not fetch, say. That is not a verdict on
+the change: the stage saves nothing and fails with the agent's reason,
+so an unreviewable pull request shows up as a failed stage rather than
+a finished review.
 
 ## Notes for anyone adapting this
 

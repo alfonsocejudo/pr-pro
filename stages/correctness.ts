@@ -54,7 +54,7 @@ const PROMPT = `You are the verifier in a two-role code-review loop: someone els
 
 Your entire final message is the review report, in markdown, ready to post to the PR thread verbatim:
 
-- Verdict first, on its own line: **APPROVE** or **REQUEST CHANGES**, with a one-sentence reason.
+- Verdict first, on its own line: **APPROVE**, **REQUEST CHANGES**, or **BLOCKED**, with a one-sentence reason. BLOCKED is for a pass you could not carry out at all — the branches would not fetch, the worktree would not build, the diff was not there to inspect. An unreviewable pull request is neither approved nor rejected, so a BLOCKED report stops after the reason, with the exact command and output that blocked you, and reports nothing about the change.
 - Check results: which checks ran, red or green, with the failing excerpt for each red one.
 - Findings ranked most-severe first, each with file:line, the defect, and the failure scenario or attack that demonstrates it. Mark any finding the thread already carries as previously raised, naming who raised it — never restate an open finding as a new discovery.
 - A **Prior feedback** section: each correctness or security concern from the existing discussion with one line on where it now stands (fixed / still open / answered). Omit the section when the thread carried none.
@@ -66,10 +66,10 @@ No preamble before the verdict and no closing summary after the last finding.`;
 // (app-written, next to workflow.json) carries the contract.
 import type { Stage, StageContext, StageOutcome, StageRunConfig } from "../stage-types";
 import { MACHINE_LOOP_MS, createStatePacer } from "./machine-pacing";
-import { reviewVerdict, unreadableVerdictWarning } from "./review-verdict";
+import { blockedReason, reviewVerdict, unreadableVerdictWarning } from "./review-verdict";
 
 /** What the prompt asks the verdict line to say, for the warning. */
-const VERDICT_SHAPE = "APPROVE or REQUEST CHANGES";
+const VERDICT_SHAPE = "APPROVE, REQUEST CHANGES, or BLOCKED";
 
 export default function createStage() {
   return {
@@ -95,6 +95,21 @@ export default function createStage() {
           await pacer.showState("verdict-unclear");
         }
         await pacer.settle(MACHINE_LOOP_MS);
+      };
+      // A BLOCKED report is a review that did not happen. Nothing is saved
+      // — Evidence has nothing to verify — and the stage fails with the
+      // agent's reason, so the failure is the operator's to see and the
+      // recovery actions apply.
+      const blockedOutcome = (report: string): StageOutcome | null => {
+        const reason = blockedReason(report);
+        if (!reason) return null;
+        ctx.log(report.trim().slice(0, 600), "warn");
+        return {
+          status: "abort",
+          error: new Error(
+            `The correctness review of ${ticket?.key ?? "the pull request"} could not run — ${reason}`,
+          ),
+        };
       };
       if (ticket) {
         prompt += `
@@ -198,6 +213,8 @@ ${rendered}`;
       // output field — and save each value under its own name.
       if (ctx.writes.length > 1) {
         const { text, outputs } = await ctx.runAgent({ prompt, outputs: ctx.writes, cwd });
+        const blocked = blockedOutcome(text);
+        if (blocked) return blocked;
         for (const key of ctx.writes) ctx.state[key] = outputs[key];
         ctx.log("Saved the review under " + ctx.writes.join(", ") + ".", "success");
         await settleOnVerdict(text);
@@ -207,6 +224,8 @@ ${rendered}`;
       // message is the review report. With none set, keep it under this
       // stage's own slot in agentOutput.
       const { text } = await ctx.runAgent({ prompt, cwd });
+      const blocked = blockedOutcome(text);
+      if (blocked) return blocked;
       if (ctx.writes.length === 1) {
         ctx.state[ctx.writes[0]] = text;
       } else {

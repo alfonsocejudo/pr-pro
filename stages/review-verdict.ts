@@ -21,6 +21,14 @@
 // review as an approval (or as clean) is the one failure mode that must
 // not be silent: the stage still saves the report, but its machine shows
 // no call and the stage says why.
+//
+// Every report also has a third opening available to it: BLOCKED, for a
+// pass the agent could not carry out at all — the branches would not
+// fetch, the worktree would not build. That is not a verdict on the
+// change, and `blockedReason` reads it out so the stage can fail rather
+// than save a non-review as a finished one. An agent offered only the
+// two real verdicts fits an unreviewable pull request into whichever
+// one sounds more cautious, and the stage then reports it as reviewed.
 
 /**
  * The report's first line, upper-cased with every run of non-letters
@@ -42,8 +50,28 @@ function normalizeVerdictLine(report: string): string {
 }
 
 /**
+ * The reason a report gives for being BLOCKED, or `null` when the report
+ * opens with anything else. The reason is the rest of the first line
+ * with the markdown wrapping and the verdict word stripped; a bare
+ * BLOCKED with nothing after it comes back as the word itself, so the
+ * caller always has something to show.
+ */
+export function blockedReason(report: string): string | null {
+  if (!/^BLOCKED\b/.test(normalizeVerdictLine(report))) return null;
+  const line = report.trim().split("\n", 1)[0] ?? "";
+  const reason = line
+    .replace(/^[\s*_#>`-]+/, "")
+    .replace(/^verdict\s*:?\s*/i, "")
+    .replace(/^blocked/i, "")
+    .replace(/^[\s*_:—–-]*/, "")
+    .trim();
+  return reason.length > 0 ? reason : "BLOCKED";
+}
+
+/**
  * Which verdict a correctness or evidence report opens with, or `null`
- * when it opens with neither. Both spellings of a rejection count —
+ * when it opens with neither — BLOCKED included, which `blockedReason`
+ * reads separately. Both spellings of a rejection count —
  * "request changes" and "changes requested", singular or plural,
  * "requests"/"requesting" included.
  */

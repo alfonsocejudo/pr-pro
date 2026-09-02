@@ -39,7 +39,7 @@ import { basename } from "node:path";
 // review-preview.ts owns the shot record both delivery stages share.
 import type { Stage, StageContext, StageOutcome } from "../stage-types";
 import { MACHINE_LOOP_MS, createStatePacer } from "./machine-pacing";
-import { reviewVerdict, unreadableVerdictWarning } from "./review-verdict";
+import { blockedReason, reviewVerdict, unreadableVerdictWarning } from "./review-verdict";
 import type { ReviewShot } from "./review-preview.ts";
 
 const MAX_SCREENSHOTS = 8;
@@ -92,7 +92,7 @@ Save them as PNG files with bare filenames prefixed \`before-\` / \`after-\` int
 
 The \`verifiedReview\` output field carries the verified review, in markdown, ready to post to the PR thread verbatim; the \`screenshots\` output field carries the JSON array described above. Those filenames are checked against the evidence directory before anything is trusted, and the survivors travel to the Publish step as \`reviewScreenshots\` — so report only captures you actually saved. The review:
 
-- Verdict first, on its own line: **APPROVE** or **REQUEST CHANGES**, with a one-sentence reason. Re-derive it from the findings that survived across both reports — surviving Critical/High quality findings justify REQUEST CHANGES the same way correctness defects do. If verification killed the findings the original verdict rested on, the verdict changes with them, with a note saying so.
+- Verdict first, on its own line: **APPROVE**, **REQUEST CHANGES**, or **BLOCKED**, with a one-sentence reason. BLOCKED is for a pass you could not carry out at all — the branches would not fetch, the worktree would not build, the diff was not there to inspect. An unreviewable pull request is neither approved nor rejected, so a BLOCKED report stops after the reason, with the exact command and output that blocked you, and reports nothing about the change. Otherwise re-derive it from the findings that survived across both reports — surviving Critical/High quality findings justify REQUEST CHANGES the same way correctness defects do. If verification killed the findings the original verdict rested on, the verdict changes with them, with a note saying so.
 - Check results that reproduced, each with the exact command and failing excerpt.
 - Surviving correctness findings ranked most-severe first, each with file:line, the defect, and the captured evidence (command + output, or the exact code demonstrating it).
 - A **Quality** section with the surviving quality findings, same ranking and evidence discipline. Omit the section when none survived.
@@ -102,7 +102,7 @@ The \`verifiedReview\` output field carries the verified review, in markdown, re
 No preamble before the verdict and no closing summary after the last section.`;
 
 /** What the prompt asks the verdict line to say, for the warning. */
-const VERDICT_SHAPE = "APPROVE or REQUEST CHANGES";
+const VERDICT_SHAPE = "APPROVE, REQUEST CHANGES, or BLOCKED";
 
 export default function createStage() {
   return {
@@ -186,6 +186,20 @@ ${quality}`;
         outputs: ["verifiedReview", "screenshots"],
       });
       const review = outputs.verifiedReview ?? "";
+      // A BLOCKED report is a verification that did not happen. Nothing
+      // is saved, so Publish has nothing to post, and the stage fails with
+      // the agent's reason — the "post-unverified" recovery below is then
+      // the operator's call.
+      const blocked = blockedReason(review);
+      if (blocked) {
+        ctx.log(review.trim().slice(0, 600), "warn");
+        return {
+          status: "abort",
+          error: new Error(
+            `The evidence pass on ${ticket?.key ?? "the pull request"} could not run — ${blocked}`,
+          ),
+        };
+      }
       ctx.state.verifiedReview = review;
 
       // The screenshot list is untrusted agent output — validate every
