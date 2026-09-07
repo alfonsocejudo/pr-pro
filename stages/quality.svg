@@ -320,10 +320,11 @@
       <rect x="59" y="44" width="32" height="34" rx="14" fill="#7a4a32"/>
       <!-- hairline, coming down close to the brow -->
       <path d="M58.5 62 Q58 43.5 75 43.5 Q92 43.5 91.5 62 Q89 57.5 84 56 Q75 54.4 66 56 Q61 57.5 58.5 62 Z" fill="#9e3b21"/>
-      <!-- ears, and the stud in one of them -->
+      <!-- ears, a stud in each -->
       <ellipse cx="57.5" cy="63" rx="3" ry="4.2" fill="#5e3624"/>
       <ellipse cx="92.5" cy="63" rx="3" ry="4.2" fill="#5e3624"/>
       <circle cx="57.2" cy="68.5" r="1.7" fill="#ffb148"/>
+      <circle cx="92.8" cy="68.5" r="1.7" fill="#ffb148"/>
 
       <!-- eyes: big ovals under heavy hooded lids, each drawn around its
            own origin so the blink scales in place -->
