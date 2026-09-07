@@ -65,7 +65,7 @@ const VERDICT_SHAPE = "CLEAN, N QUALITY FINDINGS, or BLOCKED";
 export default function createStage() {
   return {
     name: "quality",
-    version: "3",
+    version: "1",
     async run(ctx: StageContext, config: StageRunConfig): Promise<StageOutcome> {
       ctx.log("Running the agent…");
       // Machine states drive the artwork in stages/quality.svg: the grader

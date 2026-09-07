@@ -107,7 +107,7 @@ const VERDICT_SHAPE = "APPROVE, REQUEST CHANGES, or BLOCKED";
 export default function createStage() {
   return {
     name: "evidence",
-    version: "11",
+    version: "1",
     async run(ctx: StageContext): Promise<StageOutcome> {
       const ticket = ctx.state.ticket;
       // Machine states drive the artwork in stages/evidence.svg: claims go

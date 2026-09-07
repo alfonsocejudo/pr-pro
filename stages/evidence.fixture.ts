@@ -60,7 +60,7 @@ const VERDICT_STATE = reviewVerdict(CANNED_VERIFIED_REPORT) ?? "verdict-unclear"
 export default function createStage() {
   return {
     name: "evidence",
-    version: "7",
+    version: "1",
     async run(ctx: StageContext): Promise<StageOutcome> {
       // Pace the Test run by this stage's configured fixture delay (Config
       // tab → Test → Stage delay), so the dashboard steps through visibly.

@@ -218,7 +218,7 @@ async function alreadyPosted(
 export default function createStage() {
   return {
     name: "publish",
-    version: "5",
+    version: "1",
     // Declaring the publish target is what puts this stage's connection in
     // front of the app's credential check — on Start, and on a recovery
     // that resumes here — so a credential that needs re-authorizing stops

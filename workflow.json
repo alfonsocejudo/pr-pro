@@ -4,7 +4,7 @@
   "description": "Reviews the open pull requests in your repositories and posts what it finds as a comment on each one.",
   "version": 1,
   "author": "fonz@happeningsoft.com",
-  "appVersion": "0.1.0",
+  "appVersion": "1.0.0",
   "stages": [
     {
       "id": "pr-scan",

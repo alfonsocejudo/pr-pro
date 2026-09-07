@@ -74,7 +74,7 @@ const VERDICT_SHAPE = "APPROVE, REQUEST CHANGES, or BLOCKED";
 export default function createStage() {
   return {
     name: "correctness",
-    version: "7",
+    version: "1",
     async run(ctx: StageContext, config: StageRunConfig): Promise<StageOutcome> {
       let prompt = PROMPT;
       const ticket = ctx.state.ticket;

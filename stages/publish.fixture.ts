@@ -11,7 +11,7 @@ import { MACHINE_LOOP_MS, createStatePacer } from "./machine-pacing";
 export default function createStage() {
   return {
     name: "publish",
-    version: "3",
+    version: "1",
     async run(ctx: StageContext): Promise<StageOutcome> {
       // Pace the Test run by this stage's configured fixture delay (Config
       // tab → Test → Stage delay), so the dashboard steps through visibly.

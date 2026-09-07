@@ -97,7 +97,7 @@ function renderUnreadable(reason: string): string {
 export default function createStage() {
   return {
     name: "discussion",
-    version: "2",
+    version: "1",
     async run(ctx: StageContext): Promise<StageOutcome> {
       const ticket = ctx.state.ticket;
       const target = ctx.writes[0] ?? "existingComments";
