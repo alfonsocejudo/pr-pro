@@ -4,6 +4,7 @@
   "description": "Reviews the open pull requests in your repositories and posts what it finds as a comment on each one.",
   "version": 1,
   "author": "fonz@happeningsoft.com",
+  "appVersion": "0.1.0",
   "stages": [
     {
       "id": "pr-scan",
@@ -101,7 +102,7 @@
     {
       "id": "quality",
       "label": "Quality",
-      "description": "Looks for what is not wrong but will cost you later: code that repeats something the repository already has, code that will be hard to read or change, and places where the change could freeze or crash. It reads the correctness review first, so the two don't report the same thing twice.",
+      "description": "Looks for what is not wrong but will cost you later: code that repeats something the repository already has, code that will be hard to read or change, places where the change could freeze or crash, and a fact the change keeps in a second place without saying which copy is the real one. It reads the correctness review first, so the two don't report the same thing twice.",
       "usesAgent": true,
       "module": "./stages/quality.ts",
       "fixtureModule": "./stages/quality.fixture.ts",

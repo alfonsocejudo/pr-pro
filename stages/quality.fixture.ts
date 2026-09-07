@@ -1,7 +1,7 @@
 // Fixture twin — skips the agent call for Test mode. It writes a canned
 // quality report to the same outputs (ctx.writes) so the Evidence stage
 // and the dashboard see the shape a live quality pass produces.
-const CANNED_REPORT = `**2 QUALITY FINDINGS** — one duplication, one hang risk.
+const CANNED_REPORT = `**3 QUALITY FINDINGS** — one duplication, one hang risk, one second owner.
 
 ## Findings
 
@@ -11,8 +11,13 @@ const CANNED_REPORT = `**2 QUALITY FINDINGS** — one duplication, one hang risk
 2. **Moderate — src/example.ts:63** — the polling loop has no timeout:
    a server that never returns a terminal status spins it forever.
    Trigger: any request that stays \`pending\`.
+3. **High — src/example.ts:88** — \`saveSettings\` writes the list this
+   module loaded at startup back over \`settings.json\`, which
+   \`lib/settings-store.ts\` owns and other callers write meanwhile.
+   Owner: \`settings-store.ts\`; copy: the module-level \`cached\`.
+   Read before write. SPEC.md's Sources of Truth does not declare it.
 
-Referents used: CONTRIBUTING.md (utility-first rule).`;
+Referents used: CONTRIBUTING.md (utility-first rule), SPEC.md (Sources of Truth).`;
 
 // Type-only import — erased when the stage loads; stage-types.d.ts
 // (app-written, next to workflow.json) carries the contract.
@@ -35,7 +40,7 @@ const VERDICT_STATE = qualityVerdict(CANNED_REPORT) ?? "verdict-unclear";
 export default function createStage() {
   return {
     name: "quality",
-    version: "2",
+    version: "3",
     async run(ctx: StageContext): Promise<StageOutcome> {
       // Pace the Test run by this stage's configured fixture delay (Config
       // tab → Test → Stage delay), so the dashboard steps through visibly.

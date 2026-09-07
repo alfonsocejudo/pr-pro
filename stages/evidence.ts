@@ -63,7 +63,7 @@ async function screenshotFileProblem(evidenceDir: string, file: string): Promise
   return null;
 }
 
-const PROMPT = `You are the evidence pass of a code-review pipeline. Two reviewers produced the reports below about the pull request described in the ticket — a correctness/security review, and a quality report (duplication, maintainability, hang/crash robustness). Your job is to adversarially verify both: assume every finding is wrong until the repo proves it right, and produce the one final report where each surviving claim carries its own captured proof.
+const PROMPT = `You are the evidence pass of a code-review pipeline. Two reviewers produced the reports below about the pull request described in the ticket — a correctness/security review, and a quality report (duplication, maintainability, hang/crash robustness, ownership). Your job is to adversarially verify both: assume every finding is wrong until the repo proves it right, and produce the one final report where each surviving claim carries its own captured proof.
 
 ## Ground rules
 
@@ -77,7 +77,7 @@ const PROMPT = `You are the evidence pass of a code-review pipeline. Two reviewe
 2. **Reproduce the failure.** Run the concrete scenario the finding describes — execute the failing command, feed the hostile input, hit the boundary condition, trigger the hang or crash (under a timeout so a real hang can't stall this pass). Capture the command and the relevant output excerpt.
 3. **Re-run red checks.** For every check the report calls red, re-run the exact command and capture the failing excerpt. A check that passes on re-run is reported as not reproduced.
 
-Quality findings verify the same way, with the demonstration matched to the claim: a duplication finding needs the existing exported symbol shown to cover the diff's use, a maintainability finding needs the cited structure to actually be in the diff, a hang/crash finding needs the trigger reproduced or the defective path shown line by line.
+Quality findings verify the same way, with the demonstration matched to the claim: a duplication finding needs the existing exported symbol shown to cover the diff's use, a maintainability finding needs the cited structure to actually be in the diff, a hang/crash finding needs the trigger reproduced or the defective path shown line by line, an ownership finding needs the owner and the copy both opened at file:line and the write, cache, or delete path traced to where it skips the owner. An ownership finding whose copy SPEC.md's Sources of Truth declares is dropped, with that as the reason.
 
 ## Screenshots
 
@@ -107,7 +107,7 @@ const VERDICT_SHAPE = "APPROVE, REQUEST CHANGES, or BLOCKED";
 export default function createStage() {
   return {
     name: "evidence",
-    version: "10",
+    version: "11",
     async run(ctx: StageContext): Promise<StageOutcome> {
       const ticket = ctx.state.ticket;
       // Machine states drive the artwork in stages/evidence.svg: claims go

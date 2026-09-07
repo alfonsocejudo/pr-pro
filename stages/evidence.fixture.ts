@@ -33,6 +33,11 @@ const CANNED_VERIFIED_REPORT = `**REQUEST CHANGES** — the red check, the retry
 1. **High — src/example.ts:57** — \`retryWithBackoff\` duplicates
    \`lib/retry.ts\`'s \`withRetry\`. Evidence: \`withRetry\`'s signature
    covers every call site in the diff.
+2. **High — src/example.ts:88** — \`saveSettings\` writes a startup
+   snapshot back over \`settings.json\`. Evidence: \`cached\` is assigned
+   once at line 12 and never re-read; \`lib/settings-store.ts:40\` writes
+   the same file from \`updateFilters\`. SPEC.md's Sources of Truth does
+   not list the copy.
 
 ## Did not reproduce
 
@@ -55,7 +60,7 @@ const VERDICT_STATE = reviewVerdict(CANNED_VERIFIED_REPORT) ?? "verdict-unclear"
 export default function createStage() {
   return {
     name: "evidence",
-    version: "6",
+    version: "7",
     async run(ctx: StageContext): Promise<StageOutcome> {
       // Pace the Test run by this stage's configured fixture delay (Config
       // tab → Test → Stage delay), so the dashboard steps through visibly.

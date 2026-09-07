@@ -11,7 +11,7 @@ Six stages, each with a live implementation and a Test-mode twin:
 | **PR Scan** | Lists the open, non-draft PRs in the repos you pick and mints one review ticket per PR. Narrows by author and by date. |
 | **Discussion** | Reads the comments already on the PR, so the review builds on the discussion it is joining. |
 | **Correctness** | An adversarial verifier pass: runs the repo's own checks, hunts for bugs, attacks trust boundaries, judges test discipline. |
-| **Quality** | The lenses correctness doesn't cover — duplication, maintainability, freeze/crash robustness. |
+| **Quality** | The lenses correctness doesn't cover — duplication, maintainability, freeze/crash robustness, and ownership: a fact the change keeps in a second place with no declared owner. |
 | **Evidence** | Verifies every finding from both reviews against the code and throws out what can't be shown. Captures before/after screenshots for UI changes. |
 | **Publish** | Shows you the comment about to be posted, then posts it to the PR thread on your confirmation. |
 
@@ -83,8 +83,12 @@ reads the reports before it:
 
 - **Correctness** owns executable checks, bug hunting, adversarial
   security, and test discipline.
-- **Quality** owns duplication, maintainability, and hang/crash
-  robustness, and sees the correctness report.
+- **Quality** owns duplication, maintainability, hang/crash robustness,
+  and ownership — a second store of a fact, a write from a stale
+  snapshot, a cache no writer invalidates, a reference no delete reaches.
+  It reads the reviewed repo's SPEC.md `# Sources of Truth` section, so a
+  copy the project declares there is never a finding. It sees the
+  correctness report.
 - **Evidence** verifies both. Every claim needs its receipt — the failing
   command re-run, the cited lines confirmed, the failure scenario
   reproduced. Whatever can't be shown is dropped and listed under "Did
