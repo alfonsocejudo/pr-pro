@@ -12,7 +12,7 @@ Six stages, each with a live implementation and a Test-mode twin:
 | **Discussion** | Reads the comments already on the PR, so the review builds on the discussion it is joining. |
 | **Correctness** | An adversarial verifier pass: runs the repo's own checks, hunts for bugs, attacks trust boundaries, judges test discipline. |
 | **Quality** | The lenses correctness doesn't cover — duplication, maintainability, freeze/crash robustness, and ownership: a fact the change keeps in a second place with no declared owner. |
-| **Evidence** | Verifies every finding from both reviews against the code and throws out what can't be shown. Captures before/after screenshots for UI changes. |
+| **Evidence** | Verifies every finding from both reviews against the code and throws out what can't be shown. Captures before/after screenshots for UI changes, and when it captures none the Console says why. |
 | **Publish** | Shows you the comment about to be posted, then posts it to the PR thread on your confirmation. |
 
 Works against GitHub, GitLab, and Bitbucket. The provider is resolved from

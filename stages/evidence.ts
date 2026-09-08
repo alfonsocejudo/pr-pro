@@ -26,7 +26,10 @@
 // trusted: bare names, allowlisted image extensions, regular files,
 // size/count caps. Validated shots ride `reviewScreenshots` to the
 // Publish stage, which shows them in the preview and uploads them to
-// the PR thread.
+// the PR thread. A pass that captures nothing has to say why: the
+// agent's `screenshotsSkipped` reason lands in the Console as a
+// warning, so a skipped capture and a genuinely non-visual change read
+// differently.
 //
 // The `post-unverified` recovery action is the pass's failure hatch:
 // it forwards the reviewer's report to Publish marked unverified, and
@@ -86,11 +89,11 @@ When the diff changes user-visible UI and the repo can run it (a dev server plus
 - **before** — the target branch without the PR (check out the merge base in a second temporary worktree).
 - **after** — the PR's source branch.
 
-Save them as PNG files with bare filenames prefixed \`before-\` / \`after-\` into the evidence directory named under "## Evidence directory" below — it lives outside the worktrees, so nothing you save there can leak into the PR. Report every capture in the \`screenshots\` output field as a JSON array of \`{"file", "phase": "before"|"after", "caption"}\`. When screenshots don't apply (no UI change, or nothing runnable), return \`[]\` — never fabricate captures.
+Save them as PNG files with bare filenames prefixed \`before-\` / \`after-\` into the evidence directory named under "## Evidence directory" below — it lives outside the worktrees, so nothing you save there can leak into the PR. Report every capture in the \`screenshots\` output field as a JSON array of \`{"file", "phase": "before"|"after", "caption"}\`. When screenshots don't apply, return \`[]\` — never fabricate captures — and put the reason in the \`screenshotsSkipped\` output field: one sentence naming what ruled them out (the diff changes nothing a person sees; the repo has no dev server; no browser harness is installed; the dev server would not start, with the command that failed). Reproducing a UI defect through a browser test is not a substitute for the captures — a change a person can see gets screenshots as well. Leave \`screenshotsSkipped\` empty when you captured screenshots.
 
 ## Report
 
-The \`verifiedReview\` output field carries the verified review, in markdown, ready to post to the PR thread verbatim; the \`screenshots\` output field carries the JSON array described above. Those filenames are checked against the evidence directory before anything is trusted, and the survivors travel to the Publish step as \`reviewScreenshots\` — so report only captures you actually saved. The review:
+The \`verifiedReview\` output field carries the verified review, in markdown, ready to post to the PR thread verbatim; the \`screenshots\` output field carries the JSON array described above, and \`screenshotsSkipped\` the reason when that array is empty. Those filenames are checked against the evidence directory before anything is trusted, and the survivors travel to the Publish step as \`reviewScreenshots\` — so report only captures you actually saved. The review:
 
 - Verdict first, on its own line: **APPROVE**, **REQUEST CHANGES**, or **BLOCKED**, with a one-sentence reason. BLOCKED is for a pass you could not carry out at all — the branches would not fetch, the worktree would not build, the diff was not there to inspect. An unreviewable pull request is neither approved nor rejected, so a BLOCKED report stops after the reason, with the exact command and output that blocked you, and reports nothing about the change. Otherwise re-derive it from the findings that survived across both reports — surviving Critical/High quality findings justify REQUEST CHANGES the same way correctness defects do. If verification killed the findings the original verdict rested on, the verdict changes with them, with a note saying so.
 - Check results that reproduced, each with the exact command and failing excerpt.
@@ -183,7 +186,7 @@ ${quality}`;
       const { outputs } = await ctx.runAgent({
         prompt,
         cwd: repo?.path,
-        outputs: ["verifiedReview", "screenshots"],
+        outputs: ["verifiedReview", "screenshots", "screenshotsSkipped"],
       });
       const review = outputs.verifiedReview ?? "";
       // A BLOCKED report is a verification that did not happen. Nothing
@@ -237,6 +240,12 @@ ${quality}`;
       ctx.state.reviewScreenshots = { dir: evidenceDir, shots };
       if (shots.length > 0) {
         ctx.log(`Captured ${shots.length} screenshot(s) as review evidence.`, "success");
+      } else {
+        // The agent's own reason is the only record of why a pass
+        // captured nothing; without it the operator cannot tell a
+        // non-visual change from a skipped step.
+        const reason = (outputs.screenshotsSkipped ?? "").trim();
+        ctx.log(`No screenshots captured — ${reason || "the agent gave no reason"}.`, "warn");
       }
 
       ctx.log(review.trim().slice(0, 600) || "The agent finished without a message.", "success");
