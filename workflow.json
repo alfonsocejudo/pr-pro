@@ -9,7 +9,7 @@
     {
       "id": "pr-scan",
       "label": "PR Scan",
-      "description": "Finds the open pull requests in the repositories you pick and queues up one review for each. Drafts are skipped. The settings below narrow it further — to certain authors, or to pull requests updated in a date range — or widen it to pull requests already reviewed at their current commit.",
+      "description": "Finds the open pull requests in the repositories you pick and queues up one review for each. The settings below narrow it — to certain authors, or to pull requests updated in a date range — or widen it to drafts and to pull requests already reviewed at their current commit.",
       "module": "./stages/pr-scan.ts",
       "fixtureModule": "./stages/pr-scan.fixture.ts",
       "scope": "pre-run",
@@ -61,6 +61,14 @@
           "type": "date",
           "default": "",
           "description": "Only create review tickets for PRs updated on or before this date. Leave empty for no end date.",
+          "section": "settings"
+        },
+        {
+          "name": "includeDrafts",
+          "label": "Include draft pull requests",
+          "type": "boolean",
+          "default": false,
+          "description": "Also queue pull requests the author has marked as a draft. Normally a draft is left alone until the author marks it ready, since it is still being worked on. The other settings above still apply.",
           "section": "settings"
         },
         {

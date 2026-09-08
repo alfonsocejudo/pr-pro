@@ -6,7 +6,7 @@
 // from the folder's own git remotes at call time. The app makes the
 // signed provider calls itself — this code never sees a credential.
 //
-// One ticket per open, non-draft PR. Dedup keys on the ticket's
+// One ticket per open PR. Dedup keys on the ticket's
 // `revision` — the PR's head commit sha — so each revision of the code is
 // reviewed once and a new push re-queues it on the next scan. Activity that
 // leaves the branch alone (a comment, a label, an assignee change) does not,
@@ -18,6 +18,10 @@
 // "queue this even at a revision already processed". Dedup runs in the app
 // after this stage returns, so the ticket is the only channel the setting
 // has to reach it.
+//
+// Drafts are left out by default — the author is still working, so a
+// review would land on code that is not asking for one yet. The Include
+// Drafts setting takes them in; every other setting still applies to them.
 //
 // The Authors setting narrows the scan to certain PR authors:
 // comma-separated usernames, matched case-insensitively (a leading "@"
@@ -88,6 +92,11 @@ export default function createStage() {
       const cutoffMs = lookbackDays > 0 ? Date.now() - lookbackDays * 86_400_000 : null;
       if (cutoffMs !== null) {
         ctx.log(`Reviewing PRs updated in the last ${lookbackDays} day(s).`, "info");
+      }
+
+      const includeDrafts: boolean = config.settings.includeDrafts === true;
+      if (includeDrafts) {
+        ctx.log(`Including PRs the author has marked as a draft.`, "info");
       }
 
       const includeReviewed: boolean = config.settings.includeReviewed === true;
@@ -169,10 +178,10 @@ export default function createStage() {
           continue;
         }
         scannedRepos += 1;
-        const nonDraft = prs.filter((pr) => !pr.draft);
-        const drafts = prs.length - nonDraft.length;
-        const byAuthor = nonDraft.filter((pr) => authorMatches(pr.author, authorFilter));
-        const otherAuthors = nonDraft.length - byAuthor.length;
+        const eligible = includeDrafts ? prs : prs.filter((pr) => !pr.draft);
+        const drafts = prs.length - eligible.length;
+        const byAuthor = eligible.filter((pr) => authorMatches(pr.author, authorFilter));
+        const otherAuthors = eligible.length - byAuthor.length;
         const open = byAuthor.filter(inDateWindow);
         const outOfRange = byAuthor.length - open.length;
         for (const pr of open) {

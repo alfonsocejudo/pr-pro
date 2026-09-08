@@ -8,7 +8,7 @@ Six stages, each with a live implementation and a Test-mode twin:
 
 | Stage | What it does |
 |---|---|
-| **PR Scan** | Lists the open, non-draft PRs in the repos you pick and mints one review ticket per PR. Narrows by author and by date. |
+| **PR Scan** | Lists the open PRs in the repos you pick and mints one review ticket per PR. Narrows by author and by date; drafts are left out unless you ask for them. |
 | **Discussion** | Reads the comments already on the PR, so the review builds on the discussion it is joining. |
 | **Correctness** | An adversarial verifier pass: runs the repo's own checks, hunts for bugs, attacks trust boundaries, judges test discipline. |
 | **Quality** | The lenses correctness doesn't cover — duplication, maintainability, freeze/crash robustness, and ownership: a fact the change keeps in a second place with no declared owner. |

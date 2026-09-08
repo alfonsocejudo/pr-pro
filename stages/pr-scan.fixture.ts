@@ -30,6 +30,11 @@ export default function createStage() {
       const authorMatches = (author: string) =>
         authorFilter.length === 0 || authorFilter.includes(author.toLowerCase());
 
+      // Same draft semantics as the live stage: a draft is out unless
+      // Include Drafts is on. One stand-in carries the flag so the setting
+      // is observable in Test mode.
+      const includeDrafts: boolean = config.settings.includeDrafts === true;
+
       // Same date-window semantics as the live stage: Lookback (last N
       // days), Since, and Until all bound the PR's last-update time, and
       // every bound that is set must pass. Until covers its whole UTC day.
@@ -61,6 +66,7 @@ export default function createStage() {
           createdAt: daysAgo(3),
           updatedAt: daysAgo(0),
           headSha: "1a2b3c4d5e6f7081920a1b2c3d4e5f6071829304",
+          draft: false,
         },
         {
           number: 102,
@@ -72,6 +78,19 @@ export default function createStage() {
           createdAt: daysAgo(60),
           updatedAt: daysAgo(45),
           headSha: "9f8e7d6c5b4a3021304f5e6d7c8b9a0112233445",
+          draft: false,
+        },
+        {
+          number: 103,
+          title: "Sketch the new billing screen",
+          author: "carol",
+          sourceBranch: "wip/billing-screen",
+          targetBranch: "main",
+          body: "Rough layout only — still moving things around.",
+          createdAt: daysAgo(1),
+          updatedAt: daysAgo(1),
+          headSha: "5566778899aabbccddeeff001122334455667788",
+          draft: true,
         },
       ];
 
@@ -81,7 +100,10 @@ export default function createStage() {
       ctx.machine.setState("scanning-repo");
       await ctx.sleep();
 
-      const open = fakePrs.filter((pr) => authorMatches(pr.author)).filter(inDateWindow);
+      const open = fakePrs
+        .filter((pr) => includeDrafts || !pr.draft)
+        .filter((pr) => authorMatches(pr.author))
+        .filter(inDateWindow);
       if (open.length < fakePrs.length) {
         ctx.machine.setState("sorting");
         await ctx.sleep();
