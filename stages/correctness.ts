@@ -20,8 +20,10 @@
 // A ticket is a snapshot of the PR at scan time, and the queue can
 // outlive it — the PR may merge, close, or turn draft while the ticket
 // waits. The stage re-checks the provider's open-PR list at review time
-// and filters any ticket whose PR is absent from it or marked draft, so
-// only open, reviewable PRs reach the agent.
+// and filters any ticket whose PR is absent from it, so only open PRs
+// reach the agent. A draft is filtered on the same pass, unless PR Scan
+// says the operator asked for drafts (`reviewDrafts`): with Include
+// draft pull requests on, a draft is what the review was queued for.
 //
 // The Discussion stage runs first and hands over the comments already on
 // the pull request as `existingComments`; the prompt makes that thread
@@ -119,7 +121,12 @@ export default function createStage() {
 ${ticket.description ?? ""}`;
       }
       // Append each declared input (ctx.reads) as a labeled block.
+      // `reviewDrafts` is the exception: it routes this stage's own
+      // freshness check and says nothing about the code, and a bare
+      // `true` under a heading in a review prompt reads like an
+      // instruction to the agent.
       for (const key of ctx.reads) {
+        if (key === "reviewDrafts") continue;
         const value = ctx.state[key];
         if (value === undefined) continue;
         const rendered = typeof value === "string" ? value : JSON.stringify(value, null, 2);
@@ -158,11 +165,18 @@ ${rendered}`;
       const cwd = repo?.path;
 
       // Freshness check — the ticket carries the PR's state as of scan
-      // time. Confirm the PR is still on the provider's open list (and
-      // not draft) before spending a review on it; a merged or closed PR
-      // filters the ticket out of the run. The check is best-effort: a
-      // provider error logs a warning and the review proceeds, since the
-      // agent works from the local git remotes either way.
+      // time. Confirm the PR is still on the provider's open list before
+      // spending a review on it; a merged or closed PR filters the ticket
+      // out of the run. The check is best-effort: a provider error logs a
+      // warning and the review proceeds, since the agent works from the
+      // local git remotes either way.
+      //
+      // A draft is filtered here on the same pass. Whether a draft counts
+      // as reviewable is PR Scan's Include draft pull requests setting,
+      // and a stage receives only its own settings — so that decision
+      // reaches this check as the shared `reviewDrafts` field. Absent, a
+      // draft filters: that is the setting's own default.
+      const reviewDrafts = ctx.state["reviewDrafts"] === true;
       if (repo && ticket) {
         const prNumber = Number(ticket.key.slice(ticket.key.lastIndexOf("#") + 1));
         const connection = ctx.connections
@@ -193,7 +207,7 @@ ${rendered}`;
                 message: `PR #${prNumber} in ${repo.name} is already merged or closed — skipping the review.`,
               };
             }
-            if (pr.draft) {
+            if (pr.draft && !reviewDrafts) {
               await pacer.showState("pr-draft");
               await pacer.settle(MACHINE_LOOP_MS);
               return {

@@ -112,6 +112,10 @@ export default function createStage() {
         ctx.machine.setState("ticketing");
         await ctx.sleep();
       }
+      // Same shared field as the live twin: the Correctness stage reads it
+      // to decide whether a draft is reviewable, so a Test-pinned scan has
+      // to answer the same question.
+      ctx.state.reviewDrafts = includeDrafts;
       ctx.state.tickets = open.map((pr) => ({
         key: `${repoName}#${pr.number}`,
         summary: `Review: ${pr.title}`,

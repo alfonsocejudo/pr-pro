@@ -14,7 +14,8 @@
       "fixtureModule": "./stages/pr-scan.fixture.ts",
       "scope": "pre-run",
       "writes": [
-        "tickets"
+        "tickets",
+        "reviewDrafts"
       ],
       "tunables": [
         {
@@ -95,13 +96,14 @@
     {
       "id": "correctness",
       "label": "Correctness",
-      "description": "Looks for what is wrong or unsafe in the change: it runs the repository's own tests and checks, hunts for bugs, tries to break anything that accepts input from people or other systems, and asks whether the tests would really catch a mistake. Pull requests that were merged or closed while waiting in the queue are skipped rather than reviewed.",
+      "description": "Looks for what is wrong or unsafe in the change: it runs the repository's own tests and checks, hunts for bugs, tries to break anything that accepts input from people or other systems, and asks whether the tests would really catch a mistake. Pull requests that were merged or closed while waiting in the queue are skipped rather than reviewed, as are ones the author turned back into a draft — unless Include draft pull requests is on, in which case drafts are reviewed as asked.",
       "usesAgent": true,
       "module": "./stages/correctness.ts",
       "fixtureModule": "./stages/correctness.fixture.ts",
       "scope": "per-ticket",
       "reads": [
-        "existingComments"
+        "existingComments",
+        "reviewDrafts"
       ],
       "writes": [
         "correctnessFindings"
@@ -159,6 +161,7 @@
     }
   ],
   "sharedData": [
+    "reviewDrafts",
     "existingComments",
     "correctnessFindings",
     "qualityFindings",

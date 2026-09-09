@@ -254,6 +254,10 @@ export default function createStage() {
       await pacer.settle(MACHINE_LOOP_MS * 2);
 
       ctx.state.tickets = tickets;
+      // Correctness re-checks each PR's draft flag at review time, and a
+      // stage receives only its own settings — so the answer to "did the
+      // operator ask for drafts?" travels to it as a shared field.
+      ctx.state.reviewDrafts = includeDrafts;
       ctx.log(
         `Created ${tickets.length} review ticket(s).`,
         tickets.length > 0 ? "success" : "info",
