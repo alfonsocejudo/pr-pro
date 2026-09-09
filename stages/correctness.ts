@@ -21,9 +21,9 @@
 // outlive it — the PR may merge, close, or turn draft while the ticket
 // waits. The stage re-checks the provider's open-PR list at review time
 // and filters any ticket whose PR is absent from it, so only open PRs
-// reach the agent. A draft is filtered on the same pass, unless PR Scan
-// says the operator asked for drafts (`reviewDrafts`): with Include
-// draft pull requests on, a draft is what the review was queued for.
+// reach the agent. A draft is filtered on the same pass, unless the
+// ticket carries PR Scan's `reviewDrafts` stamp: with Include draft
+// pull requests on, a draft is what the review was queued for.
 //
 // The Discussion stage runs first and hands over the comments already on
 // the pull request as `existingComments`; the prompt makes that thread
@@ -121,12 +121,7 @@ export default function createStage() {
 ${ticket.description ?? ""}`;
       }
       // Append each declared input (ctx.reads) as a labeled block.
-      // `reviewDrafts` is the exception: it routes this stage's own
-      // freshness check and says nothing about the code, and a bare
-      // `true` under a heading in a review prompt reads like an
-      // instruction to the agent.
       for (const key of ctx.reads) {
-        if (key === "reviewDrafts") continue;
         const value = ctx.state[key];
         if (value === undefined) continue;
         const rendered = typeof value === "string" ? value : JSON.stringify(value, null, 2);
@@ -173,10 +168,12 @@ ${rendered}`;
       //
       // A draft is filtered here on the same pass. Whether a draft counts
       // as reviewable is PR Scan's Include draft pull requests setting,
-      // and a stage receives only its own settings — so that decision
-      // reaches this check as the shared `reviewDrafts` field. Absent, a
-      // draft filters: that is the setting's own default.
-      const reviewDrafts = ctx.state["reviewDrafts"] === true;
+      // and a stage receives only its own settings — so PR Scan stamps
+      // its answer on each ticket it mints. The ticket is what crosses
+      // from the scan to the run: a Start seeds its state from the
+      // buffer, not from the scan that filled it. Absent, a draft
+      // filters: that is the setting's own default.
+      const reviewDrafts = ticket?.workflowData?.["reviewDrafts"] === true;
       if (repo && ticket) {
         const prNumber = Number(ticket.key.slice(ticket.key.lastIndexOf("#") + 1));
         const connection = ctx.connections

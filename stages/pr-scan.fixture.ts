@@ -112,10 +112,6 @@ export default function createStage() {
         ctx.machine.setState("ticketing");
         await ctx.sleep();
       }
-      // Same shared field as the live twin: the Correctness stage reads it
-      // to decide whether a draft is reviewable, so a Test-pinned scan has
-      // to answer the same question.
-      ctx.state.reviewDrafts = includeDrafts;
       ctx.state.tickets = open.map((pr) => ({
         key: `${repoName}#${pr.number}`,
         summary: `Review: ${pr.title}`,
@@ -151,6 +147,9 @@ export default function createStage() {
         // placeholder pin would break a mixed-mode run's live stages.
         ...(repoIsReal ? { pinnedRepo: repoName } : {}),
         baseBranchHints: [pr.targetBranch],
+        // Same stamp as the live twin, so a Test-pinned scan hands
+        // Correctness the same answer about drafts.
+        workflowData: { reviewDrafts: includeDrafts },
       }));
       ctx.log(`Fixture run — minted ${ctx.state.tickets.length} stand-in review ticket(s).`);
       return { status: "continue" };

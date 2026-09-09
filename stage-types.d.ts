@@ -117,6 +117,17 @@ export interface Ticket {
   dependsOn?: string[];
   comments?: TicketComment[];
   orderIndex?: number;
+  /** Facts your pre-run stage learned about this ticket, carried to the
+   *  per-ticket stages that need them. Opaque to the app — nothing here
+   *  is read, validated, or displayed; the workflow that writes a key is
+   *  the workflow that reads it.
+   *
+   *  This is the channel from a scan to the run that works the ticket.
+   *  They are separate runs: `ctx.state` written by a pre-run stage
+   *  belongs to the scan, and a Start seeds a fresh bag from the ticket
+   *  buffer. Shared Data passes work between stages *inside* one run;
+   *  this crosses between them. */
+  workflowData?: Record<string, unknown>;
 }
 
 /** One entry of the app's repo registry (General → Local repositories). */
