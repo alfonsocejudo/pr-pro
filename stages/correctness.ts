@@ -14,8 +14,8 @@
 //
 // The agent runs in the ticket's pinned repo (the PR's home, bound by
 // pr-scan). It never dirties the operator's checkout: all
-// checkout-requiring work happens in a temporary git worktree on the PR's
-// source branch, removed when the review ends.
+// checkout-requiring work happens in the private checkout the app cuts
+// at the PR's head commit and removes when the review ends.
 //
 // A ticket is a snapshot of the PR at scan time, and the queue can
 // outlive it — the PR may merge, close, or turn draft while the ticket
@@ -38,7 +38,7 @@ const PROMPT = `You are the verifier in a two-role code-review loop: someone els
 
 ## Ground rules
 
-- The checkout you start in belongs to the operator — leave it untouched. Fetch the PR's branches (\`git fetch <remote> <source-branch> <target-branch>\`; the remote is usually \`origin\`), create a temporary worktree on the source branch (\`git worktree add <tmpdir> <remote>/<source-branch>\`), and do all checkout-requiring work there. Remove the worktree (\`git worktree remove --force <tmpdir>\`) before you finish, even when the review fails.
+- You start in a private checkout of the commit under review, cut for you and removed for you when this stage ends. Work in it. Do NOT create git worktrees of your own and do NOT switch branches — the checkout is detached at the PR's head commit on purpose. Fetch what you need to compare against (\`git fetch <remote> <target-branch>\`; the remote is usually \`origin\`).
 - The review target is the full diff of the source branch against its merge base with the target branch (\`git diff <remote>/<target>...<remote>/<source>\`), plus enough surrounding code to judge it in context.
 - Before judging anything, survey the repo's own engineering referents — README, docs/, contributing guides — for anything that defines how this repo judges work: a threat model, a definition of done, a gate or check registry, generated export catalogs, architecture decision records. Whatever exists overrides your taste. Note what you found and used.
 - Your scope is correctness and security. Duplication, maintainability, and hang/crash robustness are a separate quality pass's job — do not report them here.
@@ -46,7 +46,7 @@ const PROMPT = `You are the verifier in a two-role code-review loop: someone els
 
 ## The passes, in order
 
-1. **Checks.** Run the repo's own executable quality checks in the worktree — whatever it defines: a dedicated all-checks script, lint/typecheck/test scripts, CI job commands reproducible locally. Install dependencies if needed. Every red check is a finding: name the check, the exact command, and the failing output excerpt. A repo with no runnable checks gets a note saying so, not an invented substitute.
+1. **Checks.** Run the repo's own executable quality checks in your checkout — whatever it defines: a dedicated all-checks script, lint/typecheck/test scripts, CI job commands reproducible locally. Install dependencies if needed. Every red check is a finding: name the check, the exact command, and the failing output excerpt. A repo with no runnable checks gets a note saying so, not an invented substitute.
 2. **Bug hunt.** Hunt for correctness defects in the diff: broken logic, unhandled states, races, wrong boundary behavior, regressions in the surrounding code the diff interacts with. Each finding names file:line, states the defect in one sentence, and gives the concrete inputs or state that produce the wrong behavior.
 3. **Adversarial security.** Mandatory when the diff touches a trust boundary — anything that ingests, renders, or ships data from outside the repo's control, or that the repo's own threat model names. Attack the change: hostile strings through every ingestion path, DOM/HTML sinks, injection primitives, data crossing a boundary it shouldn't. Skipping this pass requires an explicit "no trust boundary touched" note with the reasoning.
 4. **Test discipline.** New behavior with no test, tests that cannot fail, and tests asserting the implementation rather than the required behavior are findings. A green-but-meaningless suite is the exact failure mode this review exists to catch.
@@ -56,7 +56,7 @@ const PROMPT = `You are the verifier in a two-role code-review loop: someone els
 
 Your entire final message is the review report, in markdown, ready to post to the PR thread verbatim:
 
-- Verdict first, on its own line: **APPROVE**, **REQUEST CHANGES**, or **BLOCKED**, with a one-sentence reason. BLOCKED is for a pass you could not carry out at all — the branches would not fetch, the worktree would not build, the diff was not there to inspect. An unreviewable pull request is neither approved nor rejected, so a BLOCKED report stops after the reason, with the exact command and output that blocked you, and reports nothing about the change.
+- Verdict first, on its own line: **APPROVE**, **REQUEST CHANGES**, or **BLOCKED**, with a one-sentence reason. BLOCKED is for a pass you could not carry out at all — the target branch would not fetch, the checkout would not build, the diff was not there to inspect. An unreviewable pull request is neither approved nor rejected, so a BLOCKED report stops after the reason, with the exact command and output that blocked you, and reports nothing about the change.
 - Check results: which checks ran, red or green, with the failing excerpt for each red one.
 - Findings ranked most-severe first, each with file:line, the defect, and the failure scenario or attack that demonstrates it. Mark any finding the thread already carries as previously raised, naming who raised it — never restate an open finding as a new discovery.
 - A **Prior feedback** section: each correctness or security concern from the existing discussion with one line on where it now stands (fixed / still open / answered). Omit the section when the thread carried none.
@@ -157,7 +157,27 @@ ${rendered}`;
           ),
         };
       }
-      const cwd = repo?.path;
+      // A private checkout of the commit under review, cut by the app and
+      // removed by it when this stage ends — however it ends. The
+      // operator's own checkout is left untouched without asking the
+      // agent to arrange that itself: an agent killed mid-review never
+      // reaches the line that removes its worktree, and the leftover
+      // then blocks the next review of the same branch.
+      //
+      // `ticket.revision` is the PR's head sha, which is the commit the
+      // review is about. Falls back to the repo path when there is no
+      // revision to check out (a hand-made ticket), which is the old
+      // behavior and leaves the agent its own instructions.
+      let cwd = repo?.path;
+      if (repo && ticket?.revision) {
+        try {
+          const checkout = await ctx.worktree.at(ticket.revision, { repoPath: repo.path });
+          cwd = checkout.path;
+        } catch (err) {
+          const reason = err instanceof Error ? err.message : String(err);
+          ctx.log(`Reviewing the operator's checkout: ${reason}`, "warn");
+        }
+      }
 
       // Freshness check — the ticket carries the PR's state as of scan
       // time. Confirm the PR is still on the provider's open list before

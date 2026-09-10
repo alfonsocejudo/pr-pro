@@ -16,12 +16,12 @@
 // last one instead of restating it.
 //
 // Runs in the ticket's pinned repo, same non-destructive contract as the
-// review: checkout-requiring work happens in a temporary worktree on the
-// PR's source branch, removed when the pass ends.
+// review: checkout-requiring work happens in the private checkout the
+// app cuts at the PR's head commit and removes when the pass ends.
 //
 // For UI-affecting PRs the agent also captures before/after screenshots
 // into the run's evidence directory (ctx.evidence — outside the
-// worktree, so nothing lands in the PR's diff). The reported filenames
+// checkout, so nothing lands in the PR's diff). The reported filenames
 // are validated here against the actual directory before they're
 // trusted: bare names, allowlisted image extensions, regular files,
 // size/count caps. Validated shots ride `reviewScreenshots` to the
@@ -70,7 +70,7 @@ const PROMPT = `You are the evidence pass of a code-review pipeline. Two reviewe
 
 ## Ground rules
 
-- The checkout you start in belongs to the operator — leave it untouched. Fetch the PR's branches (\`git fetch <remote> <source-branch> <target-branch>\`; the remote is usually \`origin\`), create a temporary worktree on the source branch (\`git worktree add <tmpdir> <remote>/<source-branch>\`), and do all verification work there. Remove the worktree (\`git worktree remove --force <tmpdir>\`) before you finish, even when the pass fails.
+- You start in a private checkout of the commit under review, cut for you and removed for you when this stage ends. Do all verification work in it. Do NOT create git worktrees of your own and do NOT switch branches — the checkout is detached at the PR's head commit on purpose. Fetch what you need to compare against (\`git fetch <remote> <target-branch>\`; the remote is usually \`origin\`).
 - Verify, don't re-review. You judge the reviewer's claims against the repo; you do not hunt for new findings. The one exception: if verifying a finding exposes that its description is wrong but an adjacent real defect exists, correct the finding and mark the correction.
 - Your report is posted as a comment on the pull request's thread, and that thread's existing comments are included below. Write the next turn in that conversation: keep every attribution the reviewers credited to a person, and when an earlier round of this review is already on the thread, lead with what changed since it rather than repeating it. A finding the discussion already refuted is dropped unless you can answer the refutation with evidence.
 
@@ -86,7 +86,7 @@ Quality findings verify the same way, with the demonstration matched to the clai
 
 When the diff changes user-visible UI and the repo can run it (a dev server plus a browser harness — Playwright, Cypress, or similar), capture before/after screenshots of the affected screens:
 
-- **before** — the target branch without the PR (check out the merge base in a second temporary worktree).
+- **before** — the target branch without the PR. Use a second checkout for it: `git worktree add` under the app's own worktree root is the one exception to the no-worktrees rule, since there is no other way to have both trees at once — remove it with `git worktree remove --force` before you finish.
 - **after** — the PR's source branch.
 
 Save them as PNG files with bare filenames prefixed \`before-\` / \`after-\` into the evidence directory named under "## Evidence directory" below — it lives outside the worktrees, so nothing you save there can leak into the PR. Report every capture in the \`screenshots\` output field as a JSON array of \`{"file", "phase": "before"|"after", "caption"}\`. When screenshots don't apply, return \`[]\` — never fabricate captures — and put the reason in the \`screenshotsSkipped\` output field: one sentence naming what ruled them out (the diff changes nothing a person sees; the repo has no dev server; no browser harness is installed; the dev server would not start, with the command that failed). Reproducing a UI defect through a browser test is not a substitute for the captures — a change a person can see gets screenshots as well. Leave \`screenshotsSkipped\` empty when you captured screenshots.
@@ -182,10 +182,30 @@ ${quality}`;
       }
 
       ctx.log(`Verifying the review of ${ticket?.key ?? "the run"}…`);
+      // A private checkout of the commit under review, cut by the app and
+      // removed by it when this stage ends — however it ends. The
+      // operator's own checkout is left untouched without asking the
+      // agent to arrange that itself: an agent killed mid-review never
+      // reaches the line that removes its worktree, and the leftover
+      // then blocks the next review of the same branch.
+      //
+      // `ticket.revision` is the PR's head sha, which is the commit the
+      // review is about. With no revision to check out (a hand-made
+      // ticket) the agent works where it did before.
+      let cwd = repo?.path;
+      if (repo && ticket?.revision) {
+        try {
+          const checkout = await ctx.worktree.at(ticket.revision, { repoPath: repo.path });
+          cwd = checkout.path;
+        } catch (err) {
+          const reason = err instanceof Error ? err.message : String(err);
+          ctx.log(`Reviewing the operator's checkout: ${reason}`, "warn");
+        }
+      }
       await pacer.showState("developing");
       const { outputs } = await ctx.runAgent({
         prompt,
-        cwd: repo?.path,
+        cwd,
         outputs: ["verifiedReview", "screenshots", "screenshotsSkipped"],
       });
       const review = outputs.verifiedReview ?? "";
