@@ -58,14 +58,22 @@ export interface TicketCommentAttachment {
   caption?: string;
 }
 
-/** One comment already on the ticket at its upstream source, oldest
- *  first as the scan read them. */
+/** One row of the app's own comment log on a ticket it owns end-to-end
+ *  — a stage's summary, a lifecycle note, an operator's remark. */
 export interface TicketComment {
   author: string;
   body: string;
   at: string;
   attachments?: TicketCommentAttachment[];
   editable?: boolean;
+}
+
+/** One comment already on the ticket at its upstream tracker, plain
+ *  text, as the scan read it. */
+export interface UpstreamComment {
+  author: string;
+  body: string;
+  at: string;
 }
 
 /** One transition in the ticket's kanban history — which column it moved
@@ -111,11 +119,17 @@ export interface Ticket {
   sourceUrl?: string;
   /** Configured repo `name` this ticket is pinned to, bypassing the matcher. */
   pinnedRepo?: string;
+  /** Operator-chosen base branch for the ticket's work; overrides hints and the repo default. */
+  baseBranch?: string;
   baseBranchHints?: string[];
   acceptanceCriteria?: AcceptanceCriterion[];
   statusHistory?: TicketStatusHistoryEntry[];
   dependsOn?: string[];
   comments?: TicketComment[];
+  /** The tracker's existing comments, oldest first, newest few kept.
+   *  Read once per ticket after the scan; `renderTicketForPrompt`
+   *  inlines them beside the description. */
+  upstreamComments?: UpstreamComment[];
   orderIndex?: number;
   /** Facts your pre-run stage learned about this ticket, carried to the
    *  per-ticket stages that need them. Opaque to the app — nothing here
@@ -329,6 +343,16 @@ export interface StageContext {
     (opts: { prompt: string; cwd?: string }): Promise<{ text: string }>;
   };
   readonly evidence: EvidenceStore;
+  /** A private checkout for this stage to work in. `at(ref)` gives a
+   *  detached worktree of `ref` (a sha, a branch, a remote-tracking
+   *  ref) from the ticket's pinned repo unless `repoPath` names
+   *  another; the engine removes it when the stage ends, however it
+   *  ends. Use it instead of working in the operator's own checkout —
+   *  and instead of asking an agent to make one and remember to remove
+   *  it, which a cancel breaks. */
+  readonly worktree: {
+    at(ref: string, opts?: { repoPath?: string }): Promise<{ path: string }>;
+  };
   readonly connections: StageConnectionsAccess;
   /** Post a plain-text comment to the ticket's upstream source. `false`
    *  (after a Console line) when structurally impossible; provider
@@ -369,7 +393,7 @@ export interface FailureContext {
   readonly workflow: string;
   readonly ticketKey: string;
   readonly failedStage: string;
-  readonly failureKind: "filter" | "abort" | "exception";
+  readonly failureKind: "filter" | "abort" | "exception" | "capped";
   readonly reason: string;
   readonly at: string;
   readonly branchSnapshot?: BranchSnapshot;
