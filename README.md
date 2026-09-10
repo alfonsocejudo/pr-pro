@@ -11,7 +11,7 @@ Six stages, each with a live implementation and a Test-mode twin:
 | **PR Scan** | Lists the open PRs in the repos you pick and mints one review ticket per PR. Narrows by author and by date; drafts are left out unless you ask for them. |
 | **Discussion** | Reads the comments already on the PR, so the review builds on the discussion it is joining. |
 | **Correctness** | An adversarial verifier pass: runs the repo's own checks, hunts for bugs, attacks trust boundaries, judges test discipline. Re-checks the PR before reviewing it, and skips one that merged, closed, or went back to draft while its ticket waited — drafts included, if you asked for them. |
-| **Quality** | The lenses correctness doesn't cover — duplication, maintainability, freeze/crash robustness, and ownership: a fact the change keeps in a second place with no declared owner. |
+| **Quality** | The lenses correctness doesn't cover — duplication, maintainability, freeze/crash robustness, resource lifecycle: a checkout, handle, timer or process the change acquires and an early exit never releases, and ownership: a fact the change keeps in a second place with no declared owner. |
 | **Evidence** | Verifies every finding from both reviews against the code and throws out what can't be shown. Captures before/after screenshots for UI changes, and when it captures none the Console says why. |
 | **Publish** | Shows you the comment about to be posted, then posts it to the PR thread on your confirmation. |
 
