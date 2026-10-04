@@ -78,6 +78,7 @@ export default function createStage() {
         return {
           status: "abort",
           error: new Error("No repos selected — pick repos to scan in this stage's Settings."),
+          fault: "configuration",
         };
       }
 
@@ -131,7 +132,6 @@ export default function createStage() {
         return true;
       };
 
-      const connections = ctx.connections.list();
       const tickets: Ticket[] = [];
       // Totals across every repo, so the sorting and ticketing beats play
       // once for the scan rather than once per repo.
@@ -152,10 +152,10 @@ export default function createStage() {
           await pacer.showState("repo-skipped");
           continue;
         }
-        const connection = connections.find((c) => c.id === repo.connectionId);
+        const connection = await ctx.connections.forRepo(repo);
         if (!connection) {
           ctx.log(
-            `Skipping repo "${repo.name}" — it has no "Publish to" account. Edit the repo under General → Local repositories and set one; if the list is empty, connect a GitHub, GitLab, or Bitbucket account in the Connections tab first.`,
+            `Skipping repo "${repo.name}" — no connected account reaches its git remote. Check the remote under General → Local repositories, or connect the GitHub, GitLab, or Bitbucket account it belongs to under Config → Connections.`,
             "warn",
           );
           await pacer.showState("repo-skipped");
@@ -244,12 +244,13 @@ export default function createStage() {
       if (scannedRepos === 0) {
         // Every selected repo was skipped — an operator-config error. The
         // abort fails the stage on the machine; the per-repo warnings above
-        // name each repo's fix.
+        // name each repo's fix, so it is no defect to report.
         return {
           status: "abort",
           error: new Error(
             `None of the ${selected.length} selected repo(s) could be scanned — see the warnings above for what each one needs.`,
           ),
+          fault: "configuration",
         };
       }
 

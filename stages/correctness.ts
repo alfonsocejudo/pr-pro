@@ -153,8 +153,9 @@ ${rendered}`;
         return {
           status: "abort",
           error: new Error(
-            `Ticket ${ticket.key} pins repo "${ticket.pinnedRepo}", which is not in the configured repo list.`,
+            `Ticket ${ticket.key} pins repo "${ticket.pinnedRepo}", which is not in the configured repo list. Add it under General → Local repositories.`,
           ),
+          fault: "configuration",
         };
       }
       // A private checkout of the commit under review, cut by the app and
@@ -196,9 +197,7 @@ ${rendered}`;
       const reviewDrafts = ticket?.workflowData?.["reviewDrafts"] === true;
       if (repo && ticket) {
         const prNumber = Number(ticket.key.slice(ticket.key.lastIndexOf("#") + 1));
-        const connection = ctx.connections
-          .list()
-          .find((c) => c.id === repo.connectionId);
+        const connection = await ctx.connections.forRepo(repo);
         if (connection && Number.isFinite(prNumber)) {
           await pacer.showState("preflight-check");
           let openPrs: readonly { number: number; draft: boolean }[] | null = null;

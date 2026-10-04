@@ -176,8 +176,9 @@ ${quality}`;
         return {
           status: "abort",
           error: new Error(
-            `Ticket ${ticket.key} pins repo "${ticket.pinnedRepo}", which is not in the configured repo list.`,
+            `Ticket ${ticket.key} pins repo "${ticket.pinnedRepo}", which is not in the configured repo list. Add it under General → Local repositories.`,
           ),
+          fault: "configuration",
         };
       }
 

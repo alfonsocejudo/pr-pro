@@ -22,8 +22,16 @@
 /** Console log level. */
 export type StageLogLevel = "info" | "success" | "error" | "warn";
 
-/** Write one line to the stage's Execution Console thread. */
-export type StageLogger = (message: string, level?: StageLogLevel) => void;
+/** Whose problem an `error` line is. `"configuration"`: the app works and
+ *  the setup doesn't — the remedy is a Config surface the message names.
+ *  `"verdict"`: the stage judged the work and stopped — the remedy is on
+ *  the ticket. Neither is offered as an error report to the developers;
+ *  an unclassified error line is. */
+export type LogFault = "configuration" | "verdict";
+
+/** Write one line to the stage's Execution Console thread. `fault`
+ *  classifies an `error` line — see `LogFault`. */
+export type StageLogger = (message: string, level?: StageLogLevel, fault?: LogFault) => void;
 
 /** Token usage chunk for the dashboard's live burn meter. */
 export interface TokenUsage {
@@ -39,6 +47,7 @@ export type TicketLifecycleStatus =
   | "backlog"
   | "queue"
   | "processing"
+  | "paused"
   | "merged"
   | "done";
 
@@ -50,6 +59,9 @@ export type AcceptanceCriterionStatus = "pending" | "passed" | "failed";
 export interface AcceptanceCriterion {
   text: string;
   status: AcceptanceCriterionStatus;
+  /** How the criterion is checked: through the booted app, a call, or a
+   *  stored row. Absent reads as `"ui-flow"`. */
+  verifiedThrough?: "ui-flow" | "api-call" | "data-state";
 }
 
 /** A file attached to a ticket comment at its upstream source. */
@@ -117,11 +129,24 @@ export interface Ticket {
   source: string;
   /** Canonical upstream URL (MR/issue page), when one exists. */
   sourceUrl?: string;
+  /** The identifier the tracker addresses the record by, when the
+   *  connection's ticket-name template made `key` something else. A
+   *  scanner that names tickets its own way sets this to what its
+   *  per-ticket calls take; the app sends it back through those calls. */
+  upstreamId?: string;
   /** Configured repo `name` this ticket is pinned to, bypassing the matcher. */
   pinnedRepo?: string;
   /** Operator-chosen base branch for the ticket's work; overrides hints and the repo default. */
   baseBranch?: string;
   baseBranchHints?: string[];
+  /** The merge commit a landing stage put on the base branch for this
+   *  ticket's work. Set with the flip to `merged`; the publish that
+   *  pushes the base branch flips the ticket to `done` once the remote
+   *  holds this commit. Read-only for a stage. */
+  mergeCommit?: string;
+  /** The ticket's acceptance criteria. A tracker ticket's checklist under
+   *  an "Acceptance criteria" heading lands here at scan time, and leaves
+   *  `description`: a prompt that shows the ticket renders both. */
   acceptanceCriteria?: AcceptanceCriterion[];
   statusHistory?: TicketStatusHistoryEntry[];
   dependsOn?: string[];
@@ -132,9 +157,11 @@ export interface Ticket {
   upstreamComments?: UpstreamComment[];
   orderIndex?: number;
   /** Facts your pre-run stage learned about this ticket, carried to the
-   *  per-ticket stages that need them. Opaque to the app — nothing here
-   *  is read, validated, or displayed; the workflow that writes a key is
-   *  the workflow that reads it.
+   *  per-ticket stages that need them. The values are opaque — nothing
+   *  reads, interprets, or displays them; the workflow that writes a key
+   *  is the workflow that reads it. The bag itself must be a JSON
+   *  object: a ticket whose `workflowData` is anything else fails
+   *  validation on read and never reaches the board.
    *
    *  This is the channel from a scan to the run that works the ticket.
    *  They are separate runs: `ctx.state` written by a pre-run stage
@@ -150,8 +177,10 @@ export interface RepoConfig {
   path: string;
   srcRoot: string;
   defaultBranch: string;
-  /** Id of the Connection bound to this repo. */
-  connectionId: string;
+  /** Id of the Connection bound to this repo — set only when several
+   *  connections reach the host its remote names, to pick among them.
+   *  Absent, the repo publishes through the connection for that host. */
+  connectionId?: string;
   keywords?: string[];
   excludeFromRouting?: boolean;
 }
@@ -231,6 +260,13 @@ export interface StageConnectionResponse {
  *  resolves the token internally at the moment of use. */
 export interface StageConnectionsAccess {
   list(): readonly Connection[];
+  /** The connection the repo publishes through, read off the host its
+   *  publish remote names (`repo.connectionId` picks among several on
+   *  that host); null with no remote or no connection on its host. */
+  forRepo(
+    repo: { path: string; connectionId?: string | undefined },
+    opts?: { signal?: AbortSignal },
+  ): Promise<Connection | null>;
   request(connectionId: string, req: StageConnectionRequest): Promise<StageConnectionResponse>;
   listOpenMergeRequests(
     connectionId: string,
@@ -371,7 +407,16 @@ export interface StageContext {
 export type StageOutcome =
   | { readonly status: "continue" }
   | { readonly status: "filter"; readonly reason: string; readonly message?: string }
-  | { readonly status: "abort"; readonly error: Error; readonly message?: string }
+  | {
+      readonly status: "abort";
+      readonly error: Error;
+      readonly message?: string;
+      /** `"configuration"` when the operator fixes it in Config, `"verdict"`
+       *  when it is the run's judgment of the ticket. Either keeps the
+       *  Console's error-report offer off the line; absent, the abort reads
+       *  as a defect in the stage. */
+      readonly fault?: LogFault;
+    }
   | {
       readonly status: "retry";
       readonly after?: number;
@@ -380,11 +425,13 @@ export type StageOutcome =
     };
 
 /** Branch identity recorded when a ticket parks, so recovery can find
- *  the code state the failed run produced. */
+ *  the code state the failed run produced. `baseBranch` is the branch
+ *  the work merges into, when the failed run picked one. */
 export interface BranchSnapshot {
   readonly branch: string;
   readonly sha?: string;
   readonly repoName?: string;
+  readonly baseBranch?: string;
 }
 
 /** What a recovery action's `matches` predicate sees. Keep predicates

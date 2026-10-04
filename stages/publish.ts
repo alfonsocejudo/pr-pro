@@ -84,19 +84,24 @@ function commentRequest(
   return null;
 }
 
-/** The repo the ticket is pinned to and the account bound to it — the pair
- *  every post travels through. Returns the operator-facing reason instead
- *  when either is missing. */
-function resolveTarget(
+/** The repo the ticket is pinned to and the account its git remote
+ *  publishes through — the pair every post travels through. Returns the
+ *  operator-facing reason instead when either is missing. */
+async function resolveTarget(
   ticket: Ticket,
   repos: readonly RepoConfig[],
   connections: StageConnectionsAccess,
-): { repo: RepoConfig; connection: Connection } | { error: string } {
+): Promise<{ repo: RepoConfig; connection: Connection } | { error: string }> {
   const repo = repos.find((r) => r.name === ticket.pinnedRepo);
-  const connection = repo ? connections.list().find((c) => c.id === repo.connectionId) : undefined;
-  if (!repo || !connection) {
+  if (!repo) {
     return {
-      error: `Repo "${ticket.pinnedRepo}" has no bound account to post the review with — set one under General → Local repositories.`,
+      error: `Repo "${ticket.pinnedRepo}" is not in the configured repo list.`,
+    };
+  }
+  const connection = await connections.forRepo(repo);
+  if (!connection) {
+    return {
+      error: `No connected account reaches repo "${repo.name}"'s git remote to post the review with — check its remote under General → Local repositories, or connect the account under Config → Connections.`,
     };
   }
   return { repo, connection };
@@ -246,9 +251,9 @@ export default function createStage() {
         };
       }
 
-      const target = resolveTarget(ticket, ctx.repos, ctx.connections);
+      const target = await resolveTarget(ticket, ctx.repos, ctx.connections);
       if ("error" in target) {
-        return { status: "abort", error: new Error(target.error) };
+        return { status: "abort", error: new Error(target.error), fault: "configuration" };
       }
       const { repo, connection } = target;
 
@@ -332,7 +337,7 @@ export default function createStage() {
           }
           if (!ticket.sourceUrl) throw new Error("The ticket has no PR URL to comment on.");
 
-          const target = resolveTarget(ticket, ctx.repos, ctx.connections);
+          const target = await resolveTarget(ticket, ctx.repos, ctx.connections);
           if ("error" in target) throw new Error(target.error);
           const { repo, connection } = target;
 

@@ -113,22 +113,21 @@ export default function createStage() {
         return {
           status: "abort",
           error: new Error(
-            `Ticket ${ticket.key} pins repo "${ticket.pinnedRepo}", which is not in the configured repo list.`,
+            `Ticket ${ticket.key} pins repo "${ticket.pinnedRepo}", which is not in the configured repo list. Add it under General → Local repositories.`,
           ),
+          fault: "configuration",
         };
       }
       // The PR number is the tail of the key pr-scan mints (`<repo>#<n>`),
       // the same parse the Correctness stage's freshness gate uses.
       const prNumber = ticket ? Number(ticket.key.slice(ticket.key.lastIndexOf("#") + 1)) : NaN;
-      const connection = repo
-        ? ctx.connections.list().find((c) => c.id === repo.connectionId)
-        : undefined;
+      const connection = repo ? await ctx.connections.forRepo(repo) : null;
 
       if (!repo || !connection || !Number.isFinite(prNumber)) {
         const reason = !repo
           ? "the ticket names no configured repo"
           : !connection
-            ? `repo "${repo.name}" has no bound account — set one under General → Local repositories`
+            ? `no connected account reaches repo "${repo.name}"'s git remote — check its remote under General → Local repositories, or connect the account under Config → Connections`
             : `"${ticket?.key}" carries no pull-request number`;
         ctx.log(`Reviewing without the existing discussion — ${reason}.`, "warn");
         ctx.state[target] = renderUnreadable(reason);
