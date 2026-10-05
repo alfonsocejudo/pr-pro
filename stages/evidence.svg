@@ -408,8 +408,9 @@
   <rect x="106" y="126" width="18" height="4" rx="1.5" fill="#101f31"/>
   <rect x="56" y="114" width="38" height="9" rx="2.5" fill="#101f31"/>
   <g fill="#2d7fa8">
-    <rect x="61" y="116" width="28" height="1.8" rx="0.9"/>
-    <rect x="61" y="119.5" width="28" height="1.8" rx="0.9"/>
+    <rect x="60" y="116.5" width="11" height="1.8" rx="0.9"/>
+    <rect x="60" y="119.5" width="19" height="1.8" rx="0.9"/>
+    <rect x="83" y="116.5" width="7" height="1.8" rx="0.9"/>
   </g>
   <circle class="evd-lamp" cx="38" cy="118.5" r="2.6" fill="#81ecff"/>
   <circle class="evd-lamp" cx="46" cy="118.5" r="2.6" fill="#3aa8d6"/>
