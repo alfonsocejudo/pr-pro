@@ -72,6 +72,13 @@
     .qua-tweez { transform-box: fill-box; transform-origin: 4% 92%; }
     .qua-eye   { transform-box: fill-box; transform-origin: 50% 50%; }
 
+    /* Both pupils run the one glance so her eyes move together. The glance
+       is sized for the eye behind the glass; the bare eye's pupil travels
+       the same distance relative to its own white, which is 0.62 of the
+       glass eye's in head units. */
+    .qua-pupil         { --qua-reach: 1; }
+    .qua-pupil.qua-bare { --qua-reach: 0.62; }
+
     /* Resting look — what the machine shows before a run starts. */
     .qua-ref,
     .qua-match,
@@ -176,11 +183,11 @@
       0%, 92%, 100% { transform: scaleY(1); }
       96%           { transform: scaleY(0.12); }
     }
-    /* Her eye does the looking — up to the case, then back to the glass.
+    /* Her eyes do the looking — up to the case, then back to the glass.
        The head cannot move: the loupe is held against it. */
     @keyframes qua-look {
-      0%,  6%  { transform: translate(-1.6px, -1.2px); }
-      14%, 24% { transform: translate(1.6px, -1.2px); }
+      0%,  6%  { transform: translate(calc(-1.6px * var(--qua-reach)), calc(-1.2px * var(--qua-reach))); }
+      14%, 24% { transform: translate(calc(1.6px * var(--qua-reach)), calc(-1.2px * var(--qua-reach))); }
       32%,100% { transform: translate(0, 0); }
     }
     /* One slot of the case read. */
@@ -303,7 +310,7 @@
 
     <!-- head, set down into the shoulders. It carries no glance of its
          own: the glass is held against it, so moving the head would slide
-         it off her eye. The pupil inside the glass does the looking. -->
+         it off her eye. Her pupils do the looking. -->
     <g transform="translate(75 54.24) scale(1.28) translate(-75 -61)">
       <!-- the afro sits behind the head so it rings the crown and breaks
            the silhouette above it, in the gap the case's second row
@@ -331,7 +338,7 @@
       <g transform="translate(68.5 68.5)">
         <g class="qua-eye">
           <ellipse rx="4.3" ry="4.7" fill="#f4f7fa"/>
-          <ellipse cy="1.4" rx="2" ry="2.2" fill="#2b1c20"/>
+          <ellipse class="qua-pupil qua-bare" cy="1.4" rx="2" ry="2.2" fill="#2b1c20"/>
           <path d="M-4.7 -1.4 Q-4.7 -5.6 0 -5.6 Q4.7 -5.6 4.7 -1.4 Q0 -3.4 -4.7 -1.4 Z" fill="#2b1c20"/>
           <path d="M-6.4 -3.6 L-4.2 -1.7 L-4.9 -0.5 Z" fill="#2b1c20"/>
         </g>
