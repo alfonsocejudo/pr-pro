@@ -193,10 +193,19 @@ ${quality}`;
       // `ticket.revision` is the PR's head sha, which is the commit the
       // review is about. With no revision to check out (a hand-made
       // ticket) the agent works where it did before.
+      //
+      // Verification re-runs every check the reviewers called red and
+      // starts the dev server for screenshots, so the checkout arrives
+      // with the project's dependencies installed: a tree with no runner
+      // on disk verifies nothing and reports the reviewers' numbers as
+      // unverified.
       let cwd = repo?.path;
       if (repo && ticket?.revision) {
         try {
-          const checkout = await ctx.worktree.at(ticket.revision, { repoPath: repo.path });
+          const checkout = await ctx.worktree.at(ticket.revision, {
+            repoPath: repo.path,
+            installDependencies: true,
+          });
           cwd = checkout.path;
         } catch (err) {
           const reason = err instanceof Error ? err.message : String(err);

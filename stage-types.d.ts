@@ -134,6 +134,12 @@ export interface Ticket {
    *  scanner that names tickets its own way sets this to what its
    *  per-ticket calls take; the app sends it back through those calls. */
   upstreamId?: string;
+  /** The code host project the ticket was filed on: the host as its
+   *  connection names it (`github.com`, a GitLab origin) and the path
+   *  there. A scanner reading a code host's issue list sets it; the app
+   *  routes the ticket to the configured repo whose remote points at that
+   *  project on that host. */
+  upstreamProject?: { host: string; path: string };
   /** Configured repo `name` this ticket is pinned to, bypassing the matcher. */
   pinnedRepo?: string;
   /** Operator-chosen base branch for the ticket's work; overrides hints and the repo default. */
@@ -385,9 +391,15 @@ export interface StageContext {
    *  another; the engine removes it when the stage ends, however it
    *  ends. Use it instead of working in the operator's own checkout —
    *  and instead of asking an agent to make one and remember to remove
-   *  it, which a cancel breaks. */
+   *  it, which a cancel breaks. Tracked files only, unless
+   *  `installDependencies: true`: then the project's dependencies are
+   *  installed from its committed lockfiles before the path is handed
+   *  over, for a stage that runs the code rather than reads it. */
   readonly worktree: {
-    at(ref: string, opts?: { repoPath?: string }): Promise<{ path: string }>;
+    at(
+      ref: string,
+      opts?: { repoPath?: string; installDependencies?: boolean },
+    ): Promise<{ path: string }>;
   };
   readonly connections: StageConnectionsAccess;
   /** Post a plain-text comment to the ticket's upstream source. `false`
@@ -411,10 +423,12 @@ export type StageOutcome =
       readonly status: "abort";
       readonly error: Error;
       readonly message?: string;
-      /** `"configuration"` when the operator fixes it in Config, `"verdict"`
-       *  when it is the run's judgment of the ticket. Either keeps the
-       *  Console's error-report offer off the line; absent, the abort reads
-       *  as a defect in the stage. */
+      /** `"configuration"` when the operator fixes it in Config — the run
+       *  ends `unconfigured`, or a per-ticket stage's ticket returns to
+       *  the queue, unparked, so the stage's recovery actions are not
+       *  offered for it — and `"verdict"` when it is the run's judgment
+       *  of the ticket. Either keeps the Console's error-report offer off
+       *  the line; absent, the abort reads as a defect in the stage. */
       readonly fault?: LogFault;
     }
   | {

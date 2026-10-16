@@ -169,10 +169,18 @@ ${rendered}`;
       // review is about. Falls back to the repo path when there is no
       // revision to check out (a hand-made ticket), which is the old
       // behavior and leaves the agent its own instructions.
+      //
+      // The checks pass runs the repo's own lint, typecheck and tests,
+      // so the checkout arrives with the project's dependencies
+      // installed: `git worktree add` brings tracked files only, and a
+      // tree with no runner on disk is a suite that never starts.
       let cwd = repo?.path;
       if (repo && ticket?.revision) {
         try {
-          const checkout = await ctx.worktree.at(ticket.revision, { repoPath: repo.path });
+          const checkout = await ctx.worktree.at(ticket.revision, {
+            repoPath: repo.path,
+            installDependencies: true,
+          });
           cwd = checkout.path;
         } catch (err) {
           const reason = err instanceof Error ? err.message : String(err);
