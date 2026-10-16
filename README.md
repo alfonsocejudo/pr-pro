@@ -1,5 +1,7 @@
 # PR Pro
 
+![The PR Pro dashboard mid-run: six stages across the top, a reviewer at each desk, and the Quality stage's console streaming below](docs/screenshot.png)
+
 A custom workflow for [expecto-centum](https://www.expectocentum.com).
 It reviews the open pull requests in your repositories and posts what it
 finds as a comment on each one.
