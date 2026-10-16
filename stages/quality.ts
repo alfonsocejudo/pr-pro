@@ -144,10 +144,19 @@ ${rendered}`;
       const repo = ticket?.pinnedRepo
         ? ctx.repos.find((r) => r.name === ticket.pinnedRepo)
         : undefined;
+      //
+      // The ticket's checkout, shared with the correctness pass before
+      // and the evidence pass after: this pass only reads, but the
+      // checkout is already cut and installed, so sharing it costs
+      // nothing and cutting a second one would.
       let cwd = repo?.path;
       if (repo && ticket?.revision) {
         try {
-          const checkout = await ctx.worktree.at(ticket.revision, { repoPath: repo.path });
+          const checkout = await ctx.worktree.at(ticket.revision, {
+            repoPath: repo.path,
+            installDependencies: true,
+            lifetime: "ticket",
+          });
           cwd = checkout.path;
         } catch (err) {
           const reason = err instanceof Error ? err.message : String(err);

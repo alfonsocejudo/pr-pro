@@ -198,13 +198,15 @@ ${quality}`;
       // starts the dev server for screenshots, so the checkout arrives
       // with the project's dependencies installed: a tree with no runner
       // on disk verifies nothing and reports the reviewers' numbers as
-      // unverified.
+      // unverified. It is the ticket's checkout, the one the correctness
+      // pass already installed into.
       let cwd = repo?.path;
       if (repo && ticket?.revision) {
         try {
           const checkout = await ctx.worktree.at(ticket.revision, {
             repoPath: repo.path,
             installDependencies: true,
+            lifetime: "ticket",
           });
           cwd = checkout.path;
         } catch (err) {

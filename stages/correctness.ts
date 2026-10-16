@@ -173,13 +173,17 @@ ${rendered}`;
       // The checks pass runs the repo's own lint, typecheck and tests,
       // so the checkout arrives with the project's dependencies
       // installed: `git worktree add` brings tracked files only, and a
-      // tree with no runner on disk is a suite that never starts.
+      // tree with no runner on disk is a suite that never starts. The
+      // checkout is the ticket's: the quality and evidence passes work
+      // at the same commit and are handed this same path, so the
+      // install is paid once per pull request.
       let cwd = repo?.path;
       if (repo && ticket?.revision) {
         try {
           const checkout = await ctx.worktree.at(ticket.revision, {
             repoPath: repo.path,
             installDependencies: true,
+            lifetime: "ticket",
           });
           cwd = checkout.path;
         } catch (err) {

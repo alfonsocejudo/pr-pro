@@ -394,11 +394,15 @@ export interface StageContext {
    *  it, which a cancel breaks. Tracked files only, unless
    *  `installDependencies: true`: then the project's dependencies are
    *  installed from its committed lockfiles before the path is handed
-   *  over, for a stage that runs the code rather than reads it. */
+   *  over, for a stage that runs the code rather than reads it. With
+   *  `lifetime: "ticket"` the engine keeps the checkout until the
+   *  ticket's last stage has ended, and a later stage asking for the
+   *  same ref of the same repo with the same install choice gets the
+   *  same path — one checkout and one install per ticket. */
   readonly worktree: {
     at(
       ref: string,
-      opts?: { repoPath?: string; installDependencies?: boolean },
+      opts?: { repoPath?: string; installDependencies?: boolean; lifetime?: "stage" | "ticket" },
     ): Promise<{ path: string }>;
   };
   readonly connections: StageConnectionsAccess;
