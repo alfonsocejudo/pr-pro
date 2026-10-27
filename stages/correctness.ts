@@ -19,11 +19,20 @@
 //
 // A ticket is a snapshot of the PR at scan time, and the queue can
 // outlive it — the PR may merge, close, or turn draft while the ticket
-// waits. The stage re-checks the provider's open-PR list at review time
-// and filters any ticket whose PR is absent from it, so only open PRs
-// reach the agent. A draft is filtered on the same pass, unless the
-// ticket carries PR Scan's `reviewDrafts` stamp: with Include draft
-// pull requests on, a draft is what the review was queued for.
+// waits, and the ones that stay open move: a push changes the head
+// commit, a parent merged with its branch deleted retargets the PR. The
+// stage re-reads the provider's open-PR list at review time and filters
+// any ticket whose PR is absent from it, so only open PRs reach the
+// agent. A draft is filtered on the same pass, unless the ticket carries
+// PR Scan's `reviewDrafts` stamp: with Include draft pull requests on, a
+// draft is what the review was queued for. A PR still open is reviewed
+// as it stands: the ticket takes the PR's current snapshot
+// (./review-ticket.ts, the same one PR Scan minted it from) before the
+// checkout is cut, so the checkout is at the current head, the prompt
+// names the current target branch, and the dedup marker recorded when
+// the review completes is the revision that was reviewed. The ticket
+// object is the run's own, so the refresh reaches the later stages, the
+// buffer, and the seen store without a hand-off.
 //
 // The Discussion stage runs first and hands over the comments already on
 // the pull request as `existingComments`; the prompt makes that thread
@@ -66,8 +75,15 @@ No preamble before the verdict and no closing summary after the last finding.`;
 
 // Type-only import — erased when the stage loads; stage-types.d.ts
 // (app-written, next to workflow.json) carries the contract.
-import type { Stage, StageContext, StageOutcome, StageRunConfig } from "../stage-types";
+import type {
+  MergeRequestSummary,
+  Stage,
+  StageContext,
+  StageOutcome,
+  StageRunConfig,
+} from "../stage-types";
 import { MACHINE_LOOP_MS, createStatePacer } from "./machine-pacing";
+import { pullRequestMoved, pullRequestSnapshot } from "./review-ticket";
 import { blockedReason, reviewVerdict, unreadableVerdictWarning } from "./review-verdict";
 
 /** What the prompt asks the verdict line to say, for the warning. */
@@ -113,35 +129,6 @@ export default function createStage() {
           ),
         };
       };
-      if (ticket) {
-        prompt += `
-
-## Ticket ${ticket.key}: ${ticket.summary}
-
-${ticket.description ?? ""}`;
-      }
-      // Append each declared input (ctx.reads) as a labeled block.
-      for (const key of ctx.reads) {
-        const value = ctx.state[key];
-        if (value === undefined) continue;
-        const rendered = typeof value === "string" ? value : JSON.stringify(value, null, 2);
-        prompt += `
-
-## ${key}
-
-${rendered}`;
-      }
-      // Append each setting (tunable) and its current value. Settings live in
-      // config.settings; the heading prefix keeps them apart from inputs.
-      for (const [name, value] of Object.entries(config?.settings ?? {})) {
-        const rendered = typeof value === "string" ? value : JSON.stringify(value);
-        prompt += `
-
-## Setting: ${name}
-
-${rendered}`;
-      }
-
       // The PR's home repo — pr-scan pins every ticket to the repo the PR
       // belongs to, and the review must run there. The default runAgent cwd
       // (the run's targeted repo, else the project folder) is not that repo
@@ -158,6 +145,79 @@ ${rendered}`;
           fault: "configuration",
         };
       }
+
+      // Freshness check — the ticket carries the PR's state as of scan
+      // time. Confirm the PR is still on the provider's open list before
+      // spending a checkout and a review on it; a merged or closed PR
+      // filters the ticket out of the run. The check is best-effort: a
+      // provider error logs a warning and the review proceeds from the
+      // ticket's snapshot, since the agent works from the local git
+      // remotes either way.
+      //
+      // A draft is filtered here on the same pass. Whether a draft counts
+      // as reviewable is PR Scan's Include draft pull requests setting,
+      // and a stage receives only its own settings — so PR Scan stamps
+      // its answer on each ticket it mints. The ticket is what crosses
+      // from the scan to the run: a Start seeds its state from the
+      // buffer, not from the scan that filled it. Absent, a draft
+      // filters: that is the setting's own default.
+      //
+      // A PR that is still open is reviewed as it stands now, not as it
+      // stood when scanned: the ticket takes the listed PR's snapshot in
+      // place — head commit, target branch, title, text, labels — ahead
+      // of the checkout below, which is cut at `ticket.revision`. The
+      // Console names a move of the head or the target, the two facts
+      // the review is cut from; a title or body edit refreshes quietly.
+      const reviewDrafts = ticket?.workflowData?.["reviewDrafts"] === true;
+      if (repo && ticket) {
+        const prNumber = Number(ticket.key.slice(ticket.key.lastIndexOf("#") + 1));
+        const connection = await ctx.connections.forRepo(repo);
+        if (connection && Number.isFinite(prNumber)) {
+          await pacer.showState("preflight-check");
+          let openPrs: readonly MergeRequestSummary[] | null = null;
+          try {
+            openPrs = await ctx.connections.listOpenMergeRequests(connection.id, repo.path, {
+              signal: ctx.signal,
+            });
+          } catch (err) {
+            if (err instanceof Error && err.name === "AbortError") throw err;
+            ctx.log(
+              `Could not confirm PR #${prNumber} is still open — ${err instanceof Error ? err.message : String(err)}. Reviewing it as it was when its ticket was queued.`,
+              "warn",
+            );
+          }
+          if (openPrs) {
+            const pr = openPrs.find((m) => m.number === prNumber);
+            if (!pr) {
+              await pacer.showState("pr-settled");
+              await pacer.settle(MACHINE_LOOP_MS);
+              return {
+                status: "filter",
+                reason: "pr-settled",
+                message: `PR #${prNumber} in ${repo.name} is already merged or closed — skipping the review.`,
+              };
+            }
+            if (pr.draft && !reviewDrafts) {
+              await pacer.showState("pr-draft");
+              await pacer.settle(MACHINE_LOOP_MS);
+              return {
+                status: "filter",
+                reason: "pr-draft",
+                message: `PR #${prNumber} in ${repo.name} is marked draft — skipping the review until it is ready.`,
+              };
+            }
+            const moved = pullRequestMoved(ticket, pr);
+            Object.assign(ticket, pullRequestSnapshot(repo.name, pr, ticket));
+            if (moved) {
+              ctx.log(
+                `PR #${prNumber} in ${repo.name} moved while its ticket waited — ${moved}. Reviewing it as it stands now.`,
+                "info",
+              );
+            }
+          }
+        }
+      }
+
       // A private checkout of the commit under review, cut by the app and
       // removed by it when this stage ends — however it ends. The
       // operator's own checkout is left untouched without asking the
@@ -192,60 +252,35 @@ ${rendered}`;
         }
       }
 
-      // Freshness check — the ticket carries the PR's state as of scan
-      // time. Confirm the PR is still on the provider's open list before
-      // spending a review on it; a merged or closed PR filters the ticket
-      // out of the run. The check is best-effort: a provider error logs a
-      // warning and the review proceeds, since the agent works from the
-      // local git remotes either way.
-      //
-      // A draft is filtered here on the same pass. Whether a draft counts
-      // as reviewable is PR Scan's Include draft pull requests setting,
-      // and a stage receives only its own settings — so PR Scan stamps
-      // its answer on each ticket it mints. The ticket is what crosses
-      // from the scan to the run: a Start seeds its state from the
-      // buffer, not from the scan that filled it. Absent, a draft
-      // filters: that is the setting's own default.
-      const reviewDrafts = ticket?.workflowData?.["reviewDrafts"] === true;
-      if (repo && ticket) {
-        const prNumber = Number(ticket.key.slice(ticket.key.lastIndexOf("#") + 1));
-        const connection = await ctx.connections.forRepo(repo);
-        if (connection && Number.isFinite(prNumber)) {
-          await pacer.showState("preflight-check");
-          let openPrs: readonly { number: number; draft: boolean }[] | null = null;
-          try {
-            openPrs = await ctx.connections.listOpenMergeRequests(connection.id, repo.path, {
-              signal: ctx.signal,
-            });
-          } catch (err) {
-            if (err instanceof Error && err.name === "AbortError") throw err;
-            ctx.log(
-              `Could not confirm PR #${prNumber} is still open — ${err instanceof Error ? err.message : String(err)}. Reviewing anyway.`,
-              "warn",
-            );
-          }
-          if (openPrs) {
-            const pr = openPrs.find((m) => m.number === prNumber);
-            if (!pr) {
-              await pacer.showState("pr-settled");
-              await pacer.settle(MACHINE_LOOP_MS);
-              return {
-                status: "filter",
-                reason: "pr-settled",
-                message: `PR #${prNumber} in ${repo.name} is already merged or closed — skipping the review.`,
-              };
-            }
-            if (pr.draft && !reviewDrafts) {
-              await pacer.showState("pr-draft");
-              await pacer.settle(MACHINE_LOOP_MS);
-              return {
-                status: "filter",
-                reason: "pr-draft",
-                message: `PR #${prNumber} in ${repo.name} is marked draft — skipping the review until it is ready.`,
-              };
-            }
-          }
-        }
+      // The prompt is assembled after the refresh above, so the ticket
+      // block names the PR as it stands.
+      if (ticket) {
+        prompt += `
+
+## Ticket ${ticket.key}: ${ticket.summary}
+
+${ticket.description ?? ""}`;
+      }
+      // Append each declared input (ctx.reads) as a labeled block.
+      for (const key of ctx.reads) {
+        const value = ctx.state[key];
+        if (value === undefined) continue;
+        const rendered = typeof value === "string" ? value : JSON.stringify(value, null, 2);
+        prompt += `
+
+## ${key}
+
+${rendered}`;
+      }
+      // Append each setting (tunable) and its current value. Settings live in
+      // config.settings; the heading prefix keeps them apart from inputs.
+      for (const [name, value] of Object.entries(config?.settings ?? {})) {
+        const rendered = typeof value === "string" ? value : JSON.stringify(value);
+        prompt += `
+
+## Setting: ${name}
+
+${rendered}`;
       }
 
       ctx.log(`Reviewing ${ticket?.key ?? "the run"}${repo ? ` in ${repo.name}` : ""}…`);
