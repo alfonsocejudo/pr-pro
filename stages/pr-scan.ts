@@ -51,6 +51,7 @@ import type {
 } from "../stage-types";
 
 import { createStatePacer, MACHINE_LOOP_MS } from "./machine-pacing.ts";
+import { pullRequestSnapshot } from "./review-ticket.ts";
 
 /** Parse the Authors setting into normalized usernames. */
 function parseAuthorFilter(raw: string | undefined): string[] {
@@ -187,42 +188,23 @@ export default function createStage() {
         for (const pr of open) {
           tickets.push({
             key: `${repo.name}#${pr.number}`,
-            summary: `Review: ${pr.title}`,
-            // Markdown — the dashboard's ticket card renders it, so the
-            // header fields are a list (single newlines inside a markdown
-            // paragraph collapse) and the PR body sits under a rule.
-            description: [
-              `Code-review the open pull request below. Read the full diff of`,
-              `\`${pr.sourceBranch}\` against \`${pr.targetBranch}\` and report findings.`,
-              ``,
-              `- **PR:** ${pr.webUrl}`,
-              `- **Repo:** ${repo.name}`,
-              `- **Author:** ${pr.author || "(unknown)"}`,
-              `- **Source branch:** \`${pr.sourceBranch}\``,
-              `- **Target branch:** \`${pr.targetBranch}\``,
-              ``,
-              `---`,
-              ``,
-              pr.description || "*(no PR description)*",
-            ].join("\n"),
+            // The pull request's own fields — title, text, labels, head
+            // commit, target branch — come from the one snapshot Correctness
+            // takes again at review time (./review-ticket.ts). `revision`,
+            // the head commit, is the dedup identity: a push moves it and
+            // the PR comes back for another look; a comment or a label
+            // edit doesn't, so a reviewed PR stays reviewed.
+            ...pullRequestSnapshot(repo.name, pr),
             ticketType: "Code Review",
             priority: "medium",
-            labels: pr.labels,
             status: "queue",
             assignee: null,
             created: pr.createdAt,
-            updated: pr.updatedAt,
-            // Dedup identity: the head commit under review. A push moves it
-            // and the PR comes back for another look; a comment or a label
-            // edit doesn't, so a reviewed PR stays reviewed.
-            revision: pr.headSha,
             ...(includeReviewed ? { reprocess: true } : {}),
             source: "pr-scan",
-            sourceUrl: pr.webUrl,
             // Binds the work to the repo the PR belongs to — no matching
             // heuristics downstream.
             pinnedRepo: repo.name,
-            baseBranchHints: [pr.targetBranch],
             // Correctness re-checks the PR's draft flag at review time and
             // needs to know whether a draft is reviewable. That answer is
             // this stage's setting, and a stage receives only its own

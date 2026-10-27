@@ -4,6 +4,7 @@
 // Type-only import — erased when the stage loads; stage-types.d.ts
 // (app-written, next to workflow.json) carries the contract.
 import type { Stage, StageContext, StageOutcome, StageRunConfig } from "../stage-types";
+import { describePullRequest } from "./review-ticket.ts";
 
 export default function createStage() {
   return {
@@ -115,21 +116,12 @@ export default function createStage() {
       ctx.state.tickets = open.map((pr) => ({
         key: `${repoName}#${pr.number}`,
         summary: `Review: ${pr.title}`,
-        // Markdown, mirroring the live stage's description shape.
-        description: [
-          `Code-review the open pull request below. Read the full diff of`,
-          `\`${pr.sourceBranch}\` against \`${pr.targetBranch}\` and report findings.`,
-          ``,
-          `- **PR:** https://example.com/${repoName}/pull/${pr.number}`,
-          `- **Repo:** ${repoName}`,
-          `- **Author:** ${pr.author}`,
-          `- **Source branch:** \`${pr.sourceBranch}\``,
-          `- **Target branch:** \`${pr.targetBranch}\``,
-          ``,
-          `---`,
-          ``,
-          pr.body,
-        ].join("\n"),
+        // The live stage's description shape, from the same renderer.
+        description: describePullRequest(repoName, {
+          ...pr,
+          webUrl: `https://example.com/${repoName}/pull/${pr.number}`,
+          description: pr.body,
+        }),
         ticketType: "Code Review",
         priority: "medium",
         labels: ["test"],
